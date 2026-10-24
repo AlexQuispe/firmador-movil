@@ -8,6 +8,7 @@
 | `Android SDK`            | cmdline-tools | Herramientas de compilación de Android.                         | https://developer.android.com/studio#command-tools |
 | `platform-tools`         | ^36           | Incluye `adb` para instalar en el teléfono.                     | `sdkmanager "platform-tools"`                      |
 | `platforms;android-37.0` | 37            | API contra la que se compila (`compileSdk`).                    | `sdkmanager "platforms;android-37.0"`              |
+| `OpenSSL`                | ^3.0          | CA de laboratorio que emite el certificado de prueba.           | `sudo apt install openssl`                         |
 | Teléfono Android         | ^12 (API 31)  | Con StrongBox y bloqueo de pantalla (PIN, patrón o contraseña). | Probado en Samsung Galaxy S23 Ultra, Android 16    |
 
 Gradle no se instala aparte: el proyecto incluye `./gradlew` (Gradle 9.8.2).
@@ -47,6 +48,35 @@ git checkout develop
 # Ubicación del Android SDK (no se versiona)
 echo "sdk.dir=$ANDROID_HOME" > local.properties
 ```
+
+### 🔏 CA de laboratorio
+
+El certificado del titular lo emite una CA local de prueba, **sin validez legal**: los validadores reconocerán la integridad de la firma, pero no la confianza en el emisor. Todo lo que se genera en `ca-laboratorio/` queda fuera de git; solo se versiona `openssl.cnf.sample`.
+
+```bash
+cd ca-laboratorio
+cp openssl.cnf.sample openssl.cnf
+
+# Clave y certificado raíz de la CA (válido 2 años)
+openssl req -x509 -new -newkey rsa:3072 -noenc -keyout ca.key -out ca.crt \
+  -days 730 -sha256 -config openssl.cnf
+```
+
+Para emitir el certificado del titular a partir de la CSR generada en el teléfono (`titular.csr`):
+
+```bash
+# Verificar la firma de la CSR
+openssl req -in titular.csr -noout -verify
+
+# Emitir el certificado X.509 v3 (válido 1 año)
+openssl x509 -req -in titular.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+  -out titular.crt -days 365 -sha256 -extfile openssl.cnf -extensions ext_titular
+
+# Comprobar la cadena
+openssl verify -CAfile ca.crt titular.crt
+```
+
+⚠️ `ca.key` es la clave privada de la CA: no se comparte ni se sube al repositorio.
 
 ### Preparación del teléfono
 

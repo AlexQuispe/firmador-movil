@@ -15,3 +15,6 @@
 *.p12
 *.pfx
 *.key
+# CA de laboratorio: solo se versiona la plantilla
+/ca-laboratorio/*
+!/ca-laboratorio/*.sample
