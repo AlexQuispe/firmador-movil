@@ -12,6 +12,14 @@ App Android (Kotlin) de prueba de concepto académica: firma PDF (PAdES B-B) en 
 
 P1 = I0–I4 (FM-01 a FM-10), en orden. P2 (I5: FM-11 a FM-13) solo con P1 cerrado. Al iniciar I3, probar primero la firma delegada PDFBox + Bouncy Castle → Keystore (riesgo R2).
 
+## Comandos
+
+Requieren `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64` (el `java` del sistema es 15). Paquete: `bo.edu.umsa.firmadormovil`.
+
+- `./gradlew assembleDebug` · `./gradlew installDebug` (S23 por ADB) · `./gradlew testDebugUnitTest` · `./gradlew lint`
+- Registros: `adb logcat --pid=$(adb shell pidof bo.edu.umsa.firmadormovil)`
+- Versiones solo en `gradle/libs.versions.toml`. `compileSdk 37` lo exige AndroidX; `targetSdk 36` = Android 16 del dispositivo.
+
 ## Reglas no negociables
 
 - Stack: Kotlin, `minSdk 31`, PDFBox-Android + `bcpkix`. Sin iText (AGPL). Dependencia nueva: justificar licencia.

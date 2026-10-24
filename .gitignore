@@ -1,0 +1,17 @@
+*.iml
+.gradle/
+.kotlin/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/app/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+# Material criptográfico de laboratorio: nunca en el repositorio
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.key
