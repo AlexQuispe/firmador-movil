@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import bo.edu.umsa.firmadormovil.cripto.ResumenCertificado
+import bo.edu.umsa.firmadormovil.documento.ArchivosFirmados
 import bo.edu.umsa.firmadormovil.documento.DocumentoPorFirmar
 import bo.edu.umsa.firmadormovil.ui.PantallaConfirmacion
 import bo.edu.umsa.firmadormovil.ui.PantallaInicio
@@ -48,7 +49,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import androidx.fragment.app.FragmentActivity
 import bo.edu.umsa.firmadormovil.cripto.AlmacenClaves
 import bo.edu.umsa.firmadormovil.cripto.FabricaCsr
@@ -165,8 +165,7 @@ class MainActivity : FragmentActivity() {
             firmando = true
             lifecycleScope.launch {
                 try {
-                    val nombre = porFirmar.nombre.replace('/', '_').removeSuffix(".pdf") + "_firmado.pdf"
-                    val destino = File(getExternalFilesDir(CARPETA_FIRMADOS), nombre)
+                    val destino = ArchivosFirmados.destino(this@MainActivity, porFirmar.nombre)
                     val inicio = System.nanoTime()
                     withContext(Dispatchers.IO) { FirmadorPdf.firmar(porFirmar.archivo, destino, claves.cadena(), firma) }
                     val ms = (System.nanoTime() - inicio) / 1_000_000
@@ -187,12 +186,7 @@ class MainActivity : FragmentActivity() {
         val origen = firmado ?: return
         lifecycleScope.launch {
             try {
-                withContext(Dispatchers.IO) {
-                    contentResolver.openOutputStream(destino).use { salida ->
-                        requireNotNull(salida) { "no se pudo abrir el destino" }
-                        origen.inputStream().use { it.copyTo(salida) }
-                    }
-                }
+                withContext(Dispatchers.IO) { ArchivosFirmados.guardarEn(this@MainActivity, origen, destino) }
                 registrar("FM-10: PDF firmado guardado, ${origen.length()} bytes, SHA-256 ${sha256Hex(origen.readBytes())}")
                 Toast.makeText(this@MainActivity, "Documento guardado", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
@@ -204,7 +198,7 @@ class MainActivity : FragmentActivity() {
     /** FM-10: la otra app solo recibe permiso temporal de lectura sobre este archivo. */
     private fun compartirFirmado() {
         val archivo = firmado ?: return
-        val uri = FileProvider.getUriForFile(this, "$packageName.archivos", archivo)
+        val uri = ArchivosFirmados.uriCompartible(this, archivo)
         val envio = Intent(Intent.ACTION_SEND)
             .setType("application/pdf")
             .putExtra(Intent.EXTRA_STREAM, uri)
@@ -470,6 +464,5 @@ class MainActivity : FragmentActivity() {
         const val ARCHIVO_CADENA = "cadena.pem"
         const val ARCHIVO_PDF_PRUEBA = "prueba.pdf"
         const val ARCHIVO_PDF_FIRMADO = "prueba_firmado.pdf"
-        const val CARPETA_FIRMADOS = "firmados"
     }
 }

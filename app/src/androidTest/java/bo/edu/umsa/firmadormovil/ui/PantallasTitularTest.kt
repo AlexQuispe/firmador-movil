@@ -65,6 +65,25 @@ class PantallasTitularTest {
     }
 
     @Test
+    fun elResultadoGuardaCompartirYVuelveConCadaBoton() {
+        val acciones = mutableListOf<String>()
+        compose.setContent {
+            PantallaResultado(
+                nombre = "contrato_firmado.pdf",
+                tamano = 20_914,
+                alGuardar = { acciones += "guardar" },
+                alCompartir = { acciones += "compartir" },
+                alVolver = { acciones += "volver" },
+            )
+        }
+        compose.onNodeWithText("contrato_firmado.pdf", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Guardar en…").performClick()
+        compose.onNodeWithText("Compartir").performClick()
+        compose.onNodeWithText("Volver al inicio").performClick()
+        assertEquals(listOf("guardar", "compartir", "volver"), acciones)
+    }
+
+    @Test
     fun sinCertificadoNoSePuedeElegirUnPdf() {
         compose.setContent { PantallaInicio(certificado = null, preparando = false, alElegirPdf = {}, alAbrirPruebas = {}) }
         compose.onNodeWithText("No hay un certificado cargado", substring = true).assertIsDisplayed()
