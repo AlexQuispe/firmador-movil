@@ -44,6 +44,10 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.biometric)
     implementation(libs.bouncycastle.bcpkix)
+    implementation(libs.pdfbox.android) {
+        // Trae Bouncy Castle 1.72 (jdk15to18), con las mismas clases que bcpkix-jdk18on
+        exclude(group = "org.bouncycastle")
+    }
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)

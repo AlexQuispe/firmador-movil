@@ -32,7 +32,13 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import bo.edu.umsa.firmadormovil.cripto.AlmacenClaves
 import bo.edu.umsa.firmadormovil.cripto.FabricaCsr
+import bo.edu.umsa.firmadormovil.cripto.FirmadorPdf
 import bo.edu.umsa.firmadormovil.ui.tema.TemaFirmadorMovil
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import java.io.File
 import java.security.MessageDigest
 import java.security.Signature
@@ -47,6 +53,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        PDFBoxResourceLoader.init(applicationContext)
         enableEdgeToEdge()
         setContent {
             TemaFirmadorMovil {
@@ -66,6 +73,8 @@ class MainActivity : FragmentActivity() {
                         BotonAccion("Intentar exportar la clave privada") { intentarExportar() }
                         BotonAccion("Generar CSR (FM-06)") { generarCsr() }
                         BotonAccion("Cargar certificado (FM-07)") { cargarCertificado() }
+                        BotonAccion("Crear PDF de prueba") { crearPdfPrueba() }
+                        BotonAccion("Firmar PDF de prueba (R2)") { firmarPdfPrueba() }
                         OutlinedButton(onClick = { probarRechazoStrongBox() }, modifier = Modifier.fillMaxWidth()) {
                             Text("Probar FM-03: RSA 4096 en StrongBox")
                         }
@@ -236,6 +245,43 @@ class MainActivity : FragmentActivity() {
         registrar("FM-07: X.509 v${guardado.version}, vigente del ${guardado.notBefore} al ${guardado.notAfter}")
     }
 
+    /** PDF de una página sin datos reales, para las pruebas de I3. */
+    private fun crearPdfPrueba() = protegido("I3") {
+        val archivo = File(getExternalFilesDir(null), ARCHIVO_PDF_PRUEBA)
+        PDDocument().use { documento ->
+            val pagina = PDPage()
+            documento.addPage(pagina)
+            PDPageContentStream(documento, pagina).use { contenido ->
+                contenido.beginText()
+                contenido.setFont(PDType1Font.HELVETICA, 14f)
+                contenido.newLineAtOffset(72f, 700f)
+                contenido.showText("Documento de prueba - firmador movil (sin validez legal)")
+                contenido.endText()
+            }
+            documento.save(archivo)
+        }
+        registrar("I3: PDF de prueba creado, ${archivo.length()} bytes, SHA-256 ${sha256Hex(archivo.readBytes())}")
+    }
+
+    /** R2: PDFBox prepara el PDF, Bouncy Castle arma el CMS y el Keystore calcula la firma. */
+    private fun firmarPdfPrueba() = protegido("R2") {
+        val entrada = File(getExternalFilesDir(null), ARCHIVO_PDF_PRUEBA)
+        val cadena = claves.cadena()
+        if (!entrada.exists() || cadena.size < 2) {
+            registrar("R2: falta el PDF de prueba o el certificado de laboratorio (FM-07)")
+            return@protegido
+        }
+        val resumen = sha256Hex(entrada.readBytes())
+        autorizar("R2", "Autorizar firma del PDF", "${entrada.name} · SHA-256 ${resumen.take(16)}…") { firma ->
+            val salida = File(getExternalFilesDir(null), ARCHIVO_PDF_FIRMADO)
+            val inicio = System.nanoTime()
+            FirmadorPdf.firmar(entrada, salida, cadena, firma)
+            val ms = (System.nanoTime() - inicio) / 1_000_000
+            registrar("R2: PDF firmado con la clave del Keystore, ${salida.length()} bytes, ${ms} ms")
+            registrar("R2: archivo ${salida.absolutePath}")
+        }
+    }
+
     /** StrongBox solo admite RSA 2048; la solicitud debe fallar sin crear una clave en TEE. */
     private fun probarRechazoStrongBox() {
         val sonda = AlmacenClaves(ALIAS_SONDA)
@@ -263,5 +309,7 @@ class MainActivity : FragmentActivity() {
         const val DATOS_PRUEBA = "Datos de prueba I1 - firmador movil"
         const val ARCHIVO_CSR = "titular.csr"
         const val ARCHIVO_CADENA = "cadena.pem"
+        const val ARCHIVO_PDF_PRUEBA = "prueba.pdf"
+        const val ARCHIVO_PDF_FIRMADO = "prueba_firmado.pdf"
     }
 }
