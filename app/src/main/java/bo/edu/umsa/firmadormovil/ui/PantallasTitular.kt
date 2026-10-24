@@ -108,13 +108,23 @@ fun PantallaConfirmacion(
     }
 }
 
+/** FM-10: el PDF firmado se guarda donde elija el titular o se comparte con otra app. */
 @Composable
-fun PantallaResultado(nombre: String, tamano: Long, alVolver: () -> Unit, modifier: Modifier = Modifier) {
+fun PantallaResultado(
+    nombre: String,
+    tamano: Long,
+    alGuardar: () -> Unit,
+    alCompartir: () -> Unit,
+    alVolver: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Documento firmado", style = MaterialTheme.typography.headlineSmall)
         DatoEtiquetado("Archivo", "$nombre · ${tamanoLegible(tamano)}")
         Spacer(Modifier.height(8.dp))
-        Button(onClick = alVolver, modifier = Modifier.fillMaxWidth()) { Text("Volver al inicio") }
+        Button(onClick = alGuardar, modifier = Modifier.fillMaxWidth()) { Text("Guardar en…") }
+        OutlinedButton(onClick = alCompartir, modifier = Modifier.fillMaxWidth()) { Text("Compartir") }
+        TextButton(onClick = alVolver, modifier = Modifier.fillMaxWidth()) { Text("Volver al inicio") }
     }
 }
 

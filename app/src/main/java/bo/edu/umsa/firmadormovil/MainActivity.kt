@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
 import android.util.Log
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -47,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.fragment.app.FragmentActivity
 import bo.edu.umsa.firmadormovil.cripto.AlmacenClaves
 import bo.edu.umsa.firmadormovil.cripto.FabricaCsr
@@ -77,12 +79,16 @@ class MainActivity : FragmentActivity() {
     private var preparando by mutableStateOf(false)
     private var firmando by mutableStateOf(false)
     private lateinit var elegirPdf: ActivityResultLauncher<Array<String>>
+    private lateinit var guardarComo: ActivityResultLauncher<String>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         PDFBoxResourceLoader.init(applicationContext)
         elegirPdf = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             uri?.let { prepararDocumento(it) }
+        }
+        guardarComo = registerForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+            uri?.let { guardarFirmado(it) }
         }
         actualizarCertificado()
         enableEdgeToEdge()
@@ -107,7 +113,14 @@ class MainActivity : FragmentActivity() {
                             alFirmar = ::firmarDocumento,
                             modifier = modificador,
                         )
-                        Pantalla.Resultado -> PantallaResultado(firmado!!.name, firmado!!.length(), ::volverAlInicio, modificador)
+                        Pantalla.Resultado -> PantallaResultado(
+                            nombre = firmado!!.name,
+                            tamano = firmado!!.length(),
+                            alGuardar = { guardarComo.launch(firmado!!.name) },
+                            alCompartir = ::compartirFirmado,
+                            alVolver = ::volverAlInicio,
+                            modifier = modificador,
+                        )
                         Pantalla.Pruebas -> BancoPruebas(modificador)
                     }
                 }
@@ -167,6 +180,37 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    /** FM-10: copia el PDF firmado al destino que eligió el titular. */
+    private fun guardarFirmado(destino: Uri) {
+        val origen = firmado ?: return
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    contentResolver.openOutputStream(destino).use { salida ->
+                        requireNotNull(salida) { "no se pudo abrir el destino" }
+                        origen.inputStream().use { it.copyTo(salida) }
+                    }
+                }
+                registrar("FM-10: PDF firmado guardado, ${origen.length()} bytes, SHA-256 ${sha256Hex(origen.readBytes())}")
+                Toast.makeText(this@MainActivity, "Documento guardado", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                avisar("No se pudo guardar el documento", e)
+            }
+        }
+    }
+
+    /** FM-10: la otra app solo recibe permiso temporal de lectura sobre este archivo. */
+    private fun compartirFirmado() {
+        val archivo = firmado ?: return
+        val uri = FileProvider.getUriForFile(this, "$packageName.archivos", archivo)
+        val envio = Intent(Intent.ACTION_SEND)
+            .setType("application/pdf")
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        startActivity(Intent.createChooser(envio, "Compartir PDF firmado"))
+        registrar("FM-10: hoja de compartir abierta para el PDF firmado (${archivo.length()} bytes)")
     }
 
     private fun avisar(mensaje: String, e: Exception) {
