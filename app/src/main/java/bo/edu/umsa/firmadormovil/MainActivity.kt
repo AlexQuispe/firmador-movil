@@ -23,50 +23,55 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
-import bo.edu.umsa.firmadormovil.crypto.SigningKeyStore
-import bo.edu.umsa.firmadormovil.ui.theme.FirmadorMovilTheme
+import bo.edu.umsa.firmadormovil.cripto.AlmacenClaves
+import bo.edu.umsa.firmadormovil.cripto.FabricaCsr
+import bo.edu.umsa.firmadormovil.ui.tema.TemaFirmadorMovil
+import java.io.File
 import java.security.MessageDigest
+import java.security.Signature
 
-/** I1 screen: protected key checks (FM-01 to FM-05). */
+/** Pantalla de pruebas: clave protegida (FM-01 a FM-05) y solicitud de certificado (FM-06). */
 class MainActivity : FragmentActivity() {
 
-    private val keys by lazy { SigningKeyStore() }
-    private val output = mutableStateListOf<String>()
+    private val claves by lazy { AlmacenClaves() }
+    private val salida = mutableStateListOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            FirmadorMovilTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+            TemaFirmadorMovil {
+                Scaffold(modifier = Modifier.fillMaxSize()) { margenes ->
                     Column(
                         modifier = Modifier
-                            .padding(innerPadding)
+                            .padding(margenes)
                             .padding(16.dp)
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("Firmador móvil · I1", style = MaterialTheme.typography.titleLarge)
-                        ActionButton("Generar clave (StrongBox)") { generateKey() }
-                        ActionButton("Consultar KeyInfo") { reportKeyInfo() }
-                        ActionButton("Firmar prueba con autenticación") { signWithAuthentication() }
-                        ActionButton("Firmar sin autenticación (debe fallar)") { signWithoutAuthentication() }
-                        ActionButton("Intentar exportar la clave privada") { tryExport() }
-                        OutlinedButton(onClick = { probeStrongBoxRejection() }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Firmador móvil · I1–I2", style = MaterialTheme.typography.titleLarge)
+                        BotonAccion("Generar clave (StrongBox)") { generarClave() }
+                        BotonAccion("Consultar KeyInfo") { consultarKeyInfo() }
+                        BotonAccion("Firmar prueba con autenticación") { firmarConAutenticacion() }
+                        BotonAccion("Firmar sin autenticación (debe fallar)") { firmarSinAutenticacion() }
+                        BotonAccion("Intentar exportar la clave privada") { intentarExportar() }
+                        BotonAccion("Generar CSR (FM-06)") { generarCsr() }
+                        OutlinedButton(onClick = { probarRechazoStrongBox() }, modifier = Modifier.fillMaxWidth()) {
                             Text("Probar FM-03: RSA 4096 en StrongBox")
                         }
-                        OutlinedButton(onClick = { deleteKey() }, modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(onClick = { eliminarClave() }, modifier = Modifier.fillMaxWidth()) {
                             Text("Eliminar clave")
                         }
                         SelectionContainer {
                             Text(
-                                output.joinToString("\n"),
+                                salida.joinToString("\n"),
                                 fontFamily = FontFamily.Monospace,
                                 style = MaterialTheme.typography.bodySmall,
                             )
@@ -77,135 +82,154 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    @androidx.compose.runtime.Composable
-    private fun ActionButton(label: String, onClick: () -> Unit) {
-        Button(onClick = onClick, modifier = Modifier.fillMaxWidth()) { Text(label) }
+    @Composable
+    private fun BotonAccion(texto: String, alPulsar: () -> Unit) {
+        Button(onClick = alPulsar, modifier = Modifier.fillMaxWidth()) { Text(texto) }
     }
 
-    /** Shown on screen and in logcat; never receives secrets or document content. */
-    private fun report(message: String) {
-        Log.i(TAG, message)
-        output.add(message)
+    /** Se muestra en pantalla y en logcat; nunca recibe secretos ni contenido de documentos. */
+    private fun registrar(mensaje: String) {
+        Log.i(ETIQUETA, mensaje)
+        salida.add(mensaje)
     }
 
-    private fun guarded(step: String, block: () -> Unit) {
+    private fun protegido(paso: String, bloque: () -> Unit) {
         try {
-            block()
+            bloque()
         } catch (e: Exception) {
-            report("$step: ERROR ${e.javaClass.simpleName}: ${e.message}")
+            registrar("$paso: ERROR ${e.javaClass.simpleName}: ${e.message}")
         }
     }
 
-    private fun generateKey() = guarded("FM-01") {
+    private fun generarClave() = protegido("FM-01") {
         val keyguard = getSystemService(KeyguardManager::class.java)
         if (!keyguard.isDeviceSecure) {
-            report("FM-01: sin bloqueo de pantalla seguro; configure PIN, patrón o contraseña")
-            return@guarded
+            registrar("FM-01: sin bloqueo de pantalla seguro; configure PIN, patrón o contraseña")
+            return@protegido
         }
-        if (keys.exists()) {
-            report("FM-01: ya existe la clave '${SigningKeyStore.DEFAULT_ALIAS}'; elimínela para regenerar")
-            return@guarded
+        if (claves.existe()) {
+            registrar("FM-01: ya existe la clave '${AlmacenClaves.ALIAS_PREDETERMINADO}'; elimínela para regenerar")
+            return@protegido
         }
         try {
-            val started = System.nanoTime()
-            keys.generate()
-            val ms = (System.nanoTime() - started) / 1_000_000
-            report("FM-01: clave RSA ${SigningKeyStore.KEY_SIZE} generada, alias '${SigningKeyStore.DEFAULT_ALIAS}', ${ms} ms")
+            val inicio = System.nanoTime()
+            claves.generar()
+            val ms = (System.nanoTime() - inicio) / 1_000_000
+            registrar("FM-01: clave RSA ${AlmacenClaves.TAMANO_CLAVE} generada, alias '${AlmacenClaves.ALIAS_PREDETERMINADO}', ${ms} ms")
         } catch (e: StrongBoxUnavailableException) {
-            report("FM-03: StrongBox no disponible; no se generó ninguna clave (${e.message})")
+            registrar("FM-03: StrongBox no disponible; no se generó ninguna clave (${e.message})")
         }
     }
 
-    private fun reportKeyInfo() = guarded("FM-02") {
-        val info = keys.keyInfo()
-        val level = SigningKeyStore.securityLevelName(info.securityLevel)
-        val authTypes = buildList {
+    private fun consultarKeyInfo() = protegido("FM-02") {
+        val info = claves.keyInfo()
+        val nivel = AlmacenClaves.nombreNivelSeguridad(info.securityLevel)
+        val tiposAutenticacion = buildList {
             if (info.userAuthenticationType and KeyProperties.AUTH_BIOMETRIC_STRONG != 0) add("BIOMETRIC_STRONG")
             if (info.userAuthenticationType and KeyProperties.AUTH_DEVICE_CREDENTIAL != 0) add("DEVICE_CREDENTIAL")
         }
-        report("FM-02: securityLevel=$level (${if (level == "STRONGBOX") "CUMPLE" else "NO CUMPLE"})")
-        report(
+        registrar("FM-02: securityLevel=$nivel (${if (nivel == "STRONGBOX") "CUMPLE" else "NO CUMPLE"})")
+        registrar(
             "FM-02: keySize=${info.keySize}, origin=${if (info.origin == KeyProperties.ORIGIN_GENERATED) "GENERATED" else info.origin}, " +
                 "purposes=${if (info.purposes == KeyProperties.PURPOSE_SIGN) "SIGN" else info.purposes}"
         )
-        report(
+        registrar(
             "FM-04: userAuthenticationRequired=${info.isUserAuthenticationRequired}, " +
-                "timeout=${info.userAuthenticationValidityDurationSeconds}s, types=$authTypes, " +
+                "timeout=${info.userAuthenticationValidityDurationSeconds}s, types=$tiposAutenticacion, " +
                 "enforcedBySecureHardware=${info.isUserAuthenticationRequirementEnforcedBySecureHardware}"
         )
     }
 
-    private fun signWithAuthentication() = guarded("FM-04") {
-        val signature = keys.initSignature()
-        val prompt = BiometricPrompt(
+    /** FM-04: el Keystore solo permite que [alAutorizar] firme después de que el usuario se autentica. */
+    private fun autorizar(paso: String, titulo: String, subtitulo: String, alAutorizar: (Signature) -> Unit) = protegido(paso) {
+        val dialogo = BiometricPrompt(
             this,
             ContextCompat.getMainExecutor(this),
             object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = guarded("FM-04") {
-                    val authorized = result.cryptoObject?.signature ?: error("sin CryptoObject")
-                    val data = TEST_DATA.toByteArray()
-                    val started = System.nanoTime()
-                    authorized.update(data)
-                    val value = authorized.sign()
-                    val ms = (System.nanoTime() - started) / 1_000_000
-                    val verified = keys.verify(data, value)
-                    report("FM-04: firma tras autenticación OK, ${value.size} bytes, ${ms} ms, verificada con la clave pública=$verified")
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = protegido(paso) {
+                    alAutorizar(result.cryptoObject?.signature ?: error("sin CryptoObject"))
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) =
-                    report("FM-04: autenticación cancelada o fallida ($errorCode: $errString)")
+                    registrar("$paso: autenticación cancelada o fallida ($errorCode: $errString)")
             },
         )
         val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Autorizar firma de prueba")
-            .setSubtitle("SHA-256 de los datos: ${sha256Hex(TEST_DATA.toByteArray()).take(16)}…")
+            .setTitle(titulo)
+            .setSubtitle(subtitulo)
             .setAllowedAuthenticators(BIOMETRIC_STRONG or DEVICE_CREDENTIAL)
             .build()
-        prompt.authenticate(info, BiometricPrompt.CryptoObject(signature))
+        dialogo.authenticate(info, BiometricPrompt.CryptoObject(claves.iniciarFirma()))
     }
 
-    private fun signWithoutAuthentication() {
+    private fun firmarConAutenticacion() {
+        val datos = DATOS_PRUEBA.toByteArray()
+        autorizar("FM-04", "Autorizar firma de prueba", "SHA-256 de los datos: ${sha256Hex(datos).take(16)}…") { firma ->
+            val inicio = System.nanoTime()
+            firma.update(datos)
+            val valor = firma.sign()
+            val ms = (System.nanoTime() - inicio) / 1_000_000
+            val verificada = claves.verificar(datos, valor)
+            registrar("FM-04: firma tras autenticación OK, ${valor.size} bytes, ${ms} ms, verificada con la clave pública=$verificada")
+        }
+    }
+
+    private fun firmarSinAutenticacion() {
         try {
-            keys.initSignature().run {
-                update(TEST_DATA.toByteArray())
+            claves.iniciarFirma().run {
+                update(DATOS_PRUEBA.toByteArray())
                 sign()
             }
-            report("FM-04: NO CUMPLE, la firma se produjo sin autenticación")
+            registrar("FM-04: NO CUMPLE, la firma se produjo sin autenticación")
         } catch (e: Exception) {
-            val reason = e.message.orEmpty().substringAfter("KeyStoreException: ").substringBefore(" (")
-            report("FM-04: firma sin autenticación rechazada (${e.javaClass.simpleName}: $reason) CUMPLE")
+            val motivo = e.message.orEmpty().substringAfter("KeyStoreException: ").substringBefore(" (")
+            registrar("FM-04: firma sin autenticación rechazada (${e.javaClass.simpleName}: $motivo) CUMPLE")
         }
     }
 
-    private fun tryExport() = guarded("FM-05") {
-        val encoded = keys.privateKeyEncoded()
-        report("FM-05: PrivateKey.getEncoded() ${if (encoded == null) "= null, no exportable CUMPLE" else "devolvió datos NO CUMPLE"}")
+    private fun intentarExportar() = protegido("FM-05") {
+        val codificada = claves.codificacionClavePrivada()
+        registrar("FM-05: PrivateKey.getEncoded() ${if (codificada == null) "= null, no exportable CUMPLE" else "devolvió datos NO CUMPLE"}")
     }
 
-    /** StrongBox only supports RSA 2048; the request must fail without a TEE key being created. */
-    private fun probeStrongBoxRejection() {
-        val probe = SigningKeyStore(PROBE_ALIAS)
+    /** FM-06: se guarda en el almacenamiento externo propio de la app para extraerla con adb. */
+    private fun generarCsr() {
+        autorizar("FM-06", "Autorizar solicitud de certificado", FabricaCsr.SUJETO_PREDETERMINADO.toString()) { firma ->
+            val clavePublica = claves.clavePublica()
+            val csr = FabricaCsr.construir(FabricaCsr.SUJETO_PREDETERMINADO, clavePublica, firma)
+            val archivo = File(getExternalFilesDir(null), ARCHIVO_CSR)
+            archivo.writeText(FabricaCsr.aPem(csr))
+            registrar("FM-06: CSR PKCS #10 generada, subject='${csr.subject}', ${archivo.length()} bytes")
+            registrar("FM-06: archivo ${archivo.absolutePath}")
+            registrar("FM-06: huella SHA-256 de la clave pública ${FabricaCsr.huellaClavePublica(clavePublica)}")
+        }
+    }
+
+    /** StrongBox solo admite RSA 2048; la solicitud debe fallar sin crear una clave en TEE. */
+    private fun probarRechazoStrongBox() {
+        val sonda = AlmacenClaves(ALIAS_SONDA)
         try {
-            probe.generate(keySize = 4096)
-            report("FM-03: RSA 4096 aceptada, nivel=${SigningKeyStore.securityLevelName(probe.keyInfo().securityLevel)}; prueba no concluyente")
+            sonda.generar(tamano = 4096)
+            registrar("FM-03: RSA 4096 aceptada, nivel=${AlmacenClaves.nombreNivelSeguridad(sonda.keyInfo().securityLevel)}; prueba no concluyente")
         } catch (e: Exception) {
-            report("FM-03: rechazo informado (${e.javaClass.simpleName}); clave creada=${probe.exists()}")
+            registrar("FM-03: rechazo informado (${e.javaClass.simpleName}); clave creada=${sonda.existe()}")
         } finally {
-            if (probe.exists()) probe.delete()
+            if (sonda.existe()) sonda.eliminar()
         }
     }
 
-    private fun deleteKey() = guarded("Eliminar") {
-        keys.delete()
-        report("Clave '${SigningKeyStore.DEFAULT_ALIAS}' eliminada")
+    private fun eliminarClave() = protegido("Eliminar") {
+        claves.eliminar()
+        registrar("Clave '${AlmacenClaves.ALIAS_PREDETERMINADO}' eliminada")
     }
 
-    private fun sha256Hex(data: ByteArray): String =
-        MessageDigest.getInstance("SHA-256").digest(data).joinToString("") { "%02x".format(it) }
+    private fun sha256Hex(datos: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(datos).joinToString("") { "%02x".format(it) }
 
     private companion object {
-        const val TAG = "FirmadorMovil"
-        const val PROBE_ALIAS = "fm03_sonda"
-        const val TEST_DATA = "Datos de prueba I1 - firmador movil"
+        const val ETIQUETA = "FirmadorMovil"
+        const val ALIAS_SONDA = "fm03_sonda"
+        const val DATOS_PRUEBA = "Datos de prueba I1 - firmador movil"
+        const val ARCHIVO_CSR = "titular.csr"
     }
 }

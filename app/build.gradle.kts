@@ -29,6 +29,13 @@ android {
     buildFeatures {
         compose = true
     }
+    packaging {
+        resources {
+            // Bouncy Castle jars ship the same license and OSGi manifest
+            pickFirsts += "META-INF/LICENSE.md"
+            excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+        }
+    }
 }
 
 dependencies {
@@ -36,6 +43,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.biometric)
+    implementation(libs.bouncycastle.bcpkix)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)

@@ -37,5 +37,20 @@ Cada ejecución de prueba se registra en `../../evidencias/I<n>_<nombre>/` con l
 
 - Git: el usuario gestiona *staging* y commits. No ejecutes `git add/commit/mv/rm/stash/restore --staged`; usa `mv`/`rm`.
 - Cambios mínimos y por iteración; indica qué FM-xx cubre cada cambio y cómo se verifica.
-- Ante ambigüedad en un requisito, pregunta antes de implementar.
-- Respuestas breves en español; código y nombres en inglés, comentarios solo donde aporten.
+- Ante ambigüedad en un requisito, pregunta antes de implementar. No pidas confirmación para lo ya autorizado.
+- Español en la comunicación y, cuando sea natural, en nombres de archivos, clases, funciones y variables; en inglés los términos de estándares o APIs (CSR, KeyInfo, PAdES, Signer). Comentarios solo donde aporten.
+- Sigue los patrones del proyecto antes de añadir dependencias o soluciones paralelas.
+- README e INSTALL solo cambian si quedan incorrectos o hace falta para usar o mantener una funcionalidad; breves, fieles al código y legibles de arriba abajo.
+
+## Pruebas y cierre
+
+- Sin pruebas nuevas mientras una funcionalidad está en desarrollo; al aprobarla el usuario, recuérdale crearlas (o créalas si lo pide o lo autoriza antes).
+- Ejecuta las comprobaciones pertinentes (`testDebugUnitTest`, `lint`, prueba en el teléfono) e informa qué pasó y qué quedó sin verificar.
+- Al cerrar: qué cambió y dónde, cómo se validó y limitaciones. No afirmes prueba visual, revisión experta ni ejecución en el teléfono que no ocurrieron.
+
+## UX/UI
+
+- La pantalla actual es un banco de pruebas; la revisión UX aplica al flujo del titular (confirmación FM-08, firma, resultado).
+- Antes de cerrar un cambio visual, pide revisión al revisor UX/UI de la sesión si existe; si no, dilo y deja la limitación. Nunca inventes su aprobación.
+- Cambios visuales importantes: propuesta concreta (mockup si ayuda o se pide) antes de implementar; luego verifica en el teléfono los estados relevantes (captura con `adb exec-out screencap -p`).
+- Mantén Material 3 y el tema existente; estilos limitados al componente; sin imágenes ni adornos que no mejoren la experiencia.
