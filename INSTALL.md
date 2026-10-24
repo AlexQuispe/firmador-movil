@@ -62,9 +62,12 @@ openssl req -x509 -new -newkey rsa:3072 -noenc -keyout ca.key -out ca.crt \
   -days 730 -sha256 -config openssl.cnf
 ```
 
-Para emitir el certificado del titular a partir de la CSR generada en el teléfono (`titular.csr`):
+Para emitir el certificado del titular, primero generar la CSR en la app (**Generar CSR**) y luego, dentro de `ca-laboratorio/`:
 
 ```bash
+# Traer la CSR desde el teléfono
+adb pull /sdcard/Android/data/bo.edu.umsa.firmadormovil/files/titular.csr
+
 # Verificar la firma de la CSR
 openssl req -in titular.csr -noout -verify
 
@@ -74,7 +77,13 @@ openssl x509 -req -in titular.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
 
 # Comprobar la cadena
 openssl verify -CAfile ca.crt titular.crt
+
+# Enviar la cadena (titular y CA) al teléfono
+cat titular.crt ca.crt > cadena.pem
+adb push cadena.pem /sdcard/Android/data/bo.edu.umsa.firmadormovil/files/
 ```
+
+Luego, en la app, pulsar **Cargar certificado**: se guarda solo si su clave pública coincide con la de StrongBox.
 
 ⚠️ `ca.key` es la clave privada de la CA: no se comparte ni se sube al repositorio.
 

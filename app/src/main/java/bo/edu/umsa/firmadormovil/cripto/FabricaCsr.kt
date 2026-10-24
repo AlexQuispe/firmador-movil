@@ -16,8 +16,8 @@ import java.security.Signature
 /** CSR PKCS #10 firmada mediante una [Signature] ya inicializada (FM-06). */
 object FabricaCsr {
 
-    /** Sujeto de laboratorio: sin datos personales. */
-    val SUJETO_PREDETERMINADO = X500Name("CN=Titular de prueba, OU=Laboratorio, O=Prueba de concepto firmador movil, C=BO")
+    /** Sujeto de laboratorio, sin datos personales; mismo orden de RDN que la CA (C primero). */
+    val SUJETO_PREDETERMINADO = X500Name("C=BO, O=Prueba de concepto firmador movil, OU=Laboratorio, CN=Titular de prueba")
 
     /**
      * [firma] debe estar inicializada con la clave privada que corresponde a [clavePublica];

@@ -36,8 +36,10 @@ import bo.edu.umsa.firmadormovil.ui.tema.TemaFirmadorMovil
 import java.io.File
 import java.security.MessageDigest
 import java.security.Signature
+import java.security.cert.CertificateFactory
+import java.security.cert.X509Certificate
 
-/** Pantalla de pruebas: clave protegida (FM-01 a FM-05) y solicitud de certificado (FM-06). */
+/** Pantalla de pruebas: clave protegida (FM-01 a FM-05), CSR (FM-06) y certificado (FM-07). */
 class MainActivity : FragmentActivity() {
 
     private val claves by lazy { AlmacenClaves() }
@@ -63,6 +65,7 @@ class MainActivity : FragmentActivity() {
                         BotonAccion("Firmar sin autenticación (debe fallar)") { firmarSinAutenticacion() }
                         BotonAccion("Intentar exportar la clave privada") { intentarExportar() }
                         BotonAccion("Generar CSR (FM-06)") { generarCsr() }
+                        BotonAccion("Cargar certificado (FM-07)") { cargarCertificado() }
                         OutlinedButton(onClick = { probarRechazoStrongBox() }, modifier = Modifier.fillMaxWidth()) {
                             Text("Probar FM-03: RSA 4096 en StrongBox")
                         }
@@ -138,6 +141,8 @@ class MainActivity : FragmentActivity() {
                 "timeout=${info.userAuthenticationValidityDurationSeconds}s, types=$tiposAutenticacion, " +
                 "enforcedBySecureHardware=${info.isUserAuthenticationRequirementEnforcedBySecureHardware}"
         )
+        val cadena = claves.cadena()
+        registrar("FM-07: cadena guardada de ${cadena.size} certificado(s), emisor del titular='${cadena.first().issuerX500Principal}'")
     }
 
     /** FM-04: el Keystore solo permite que [alAutorizar] firme después de que el usuario se autentica. */
@@ -205,6 +210,32 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /** FM-07: lee la cadena PEM (titular y CA) copiada con adb al almacenamiento externo de la app. */
+    private fun cargarCertificado() = protegido("FM-07") {
+        val archivo = File(getExternalFilesDir(null), ARCHIVO_CADENA)
+        if (!archivo.exists()) {
+            registrar("FM-07: no existe ${archivo.absolutePath}")
+            return@protegido
+        }
+        val cadena = archivo.inputStream().use { entrada ->
+            CertificateFactory.getInstance("X.509").generateCertificates(entrada).map { it as X509Certificate }
+        }
+        val huellaCertificado = FabricaCsr.huellaClavePublica(cadena.first().publicKey)
+        val huellaKeystore = FabricaCsr.huellaClavePublica(claves.clavePublica())
+        registrar("FM-07: huella del certificado ${huellaCertificado}")
+        registrar("FM-07: huella del Keystore    ${huellaKeystore}")
+        try {
+            claves.guardarCadena(cadena)
+        } catch (e: Exception) {
+            registrar("FM-07: certificado rechazado (${e.javaClass.simpleName}: ${e.message})")
+            return@protegido
+        }
+        val guardado = claves.cadena().first()
+        registrar("FM-07: cadena de ${cadena.size} certificados guardada en el Keystore; claves coinciden CUMPLE")
+        registrar("FM-07: titular='${guardado.subjectX500Principal}', emisor='${guardado.issuerX500Principal}'")
+        registrar("FM-07: X.509 v${guardado.version}, vigente del ${guardado.notBefore} al ${guardado.notAfter}")
+    }
+
     /** StrongBox solo admite RSA 2048; la solicitud debe fallar sin crear una clave en TEE. */
     private fun probarRechazoStrongBox() {
         val sonda = AlmacenClaves(ALIAS_SONDA)
@@ -231,5 +262,6 @@ class MainActivity : FragmentActivity() {
         const val ALIAS_SONDA = "fm03_sonda"
         const val DATOS_PRUEBA = "Datos de prueba I1 - firmador movil"
         const val ARCHIVO_CSR = "titular.csr"
+        const val ARCHIVO_CADENA = "cadena.pem"
     }
 }

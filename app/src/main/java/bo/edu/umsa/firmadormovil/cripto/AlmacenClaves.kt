@@ -10,6 +10,7 @@ import java.security.KeyStore
 import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.Signature
+import java.security.cert.X509Certificate
 
 /** Clave de firma en Android Keystore, solo con respaldo StrongBox (FM-01 a FM-05). */
 class AlmacenClaves(private val alias: String = ALIAS_PREDETERMINADO) {
@@ -45,6 +46,24 @@ class AlmacenClaves(private val alias: String = ALIAS_PREDETERMINADO) {
     fun clavePublica(): PublicKey = keyStore.getCertificate(alias).publicKey
 
     private fun clavePrivada(): PrivateKey = keyStore.getKey(alias, null) as PrivateKey
+
+    /**
+     * FM-07: reemplaza el certificado autofirmado del Keystore por [cadena] (titular primero).
+     * Rechaza la cadena si el certificado no corresponde a la clave, no está vigente
+     * o no lo firmó el siguiente certificado de la cadena.
+     */
+    fun guardarCadena(cadena: List<X509Certificate>) {
+        val titular = cadena.firstOrNull() ?: throw IllegalArgumentException("cadena vacía")
+        require(titular.publicKey.encoded.contentEquals(clavePublica().encoded)) {
+            "la clave pública del certificado no coincide con la clave del Keystore"
+        }
+        titular.checkValidity()
+        cadena.zipWithNext { certificado, emisor -> certificado.verify(emisor.publicKey) }
+        keyStore.setKeyEntry(alias, clavePrivada(), null, cadena.toTypedArray())
+    }
+
+    fun cadena(): List<X509Certificate> =
+        keyStore.getCertificateChain(alias).orEmpty().map { it as X509Certificate }
 
     /** FM-02. */
     fun keyInfo(): KeyInfo {
