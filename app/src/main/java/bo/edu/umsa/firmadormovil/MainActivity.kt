@@ -5,6 +5,24 @@ import android.os.Bundle
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
 import android.util.Log
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.lifecycleScope
+import bo.edu.umsa.firmadormovil.cripto.ResumenCertificado
+import bo.edu.umsa.firmadormovil.documento.DocumentoPorFirmar
+import bo.edu.umsa.firmadormovil.ui.PantallaConfirmacion
+import bo.edu.umsa.firmadormovil.ui.PantallaInicio
+import bo.edu.umsa.firmadormovil.ui.PantallaResultado
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
@@ -45,51 +63,148 @@ import java.security.Signature
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 
-/** Pantalla de pruebas: clave protegida (FM-01 a FM-05), CSR (FM-06) y certificado (FM-07). */
+/** Flujo del titular (FM-08) y pantalla de pruebas técnicas (FM-01 a FM-07, R2). */
 class MainActivity : FragmentActivity() {
+
+    private enum class Pantalla { Inicio, Confirmacion, Resultado, Pruebas }
 
     private val claves by lazy { AlmacenClaves() }
     private val salida = mutableStateListOf<String>()
+    private var pantalla by mutableStateOf(Pantalla.Inicio)
+    private var certificado by mutableStateOf<ResumenCertificado?>(null)
+    private var documento by mutableStateOf<DocumentoPorFirmar?>(null)
+    private var firmado by mutableStateOf<File?>(null)
+    private var preparando by mutableStateOf(false)
+    private var firmando by mutableStateOf(false)
+    private lateinit var elegirPdf: ActivityResultLauncher<Array<String>>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         PDFBoxResourceLoader.init(applicationContext)
+        elegirPdf = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            uri?.let { prepararDocumento(it) }
+        }
+        actualizarCertificado()
         enableEdgeToEdge()
         setContent {
             TemaFirmadorMovil {
                 Scaffold(modifier = Modifier.fillMaxSize()) { margenes ->
-                    Column(
-                        modifier = Modifier
-                            .padding(margenes)
-                            .padding(16.dp)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text("Firmador móvil · I1–I2", style = MaterialTheme.typography.titleLarge)
-                        BotonAccion("Generar clave (StrongBox)") { generarClave() }
-                        BotonAccion("Consultar KeyInfo") { consultarKeyInfo() }
-                        BotonAccion("Firmar prueba con autenticación") { firmarConAutenticacion() }
-                        BotonAccion("Firmar sin autenticación (debe fallar)") { firmarSinAutenticacion() }
-                        BotonAccion("Intentar exportar la clave privada") { intentarExportar() }
-                        BotonAccion("Generar CSR (FM-06)") { generarCsr() }
-                        BotonAccion("Cargar certificado (FM-07)") { cargarCertificado() }
-                        BotonAccion("Crear PDF de prueba") { crearPdfPrueba() }
-                        BotonAccion("Firmar PDF de prueba (R2)") { firmarPdfPrueba() }
-                        OutlinedButton(onClick = { probarRechazoStrongBox() }, modifier = Modifier.fillMaxWidth()) {
-                            Text("Probar FM-03: RSA 4096 en StrongBox")
-                        }
-                        OutlinedButton(onClick = { eliminarClave() }, modifier = Modifier.fillMaxWidth()) {
-                            Text("Eliminar clave")
-                        }
-                        SelectionContainer {
-                            Text(
-                                salida.joinToString("\n"),
-                                fontFamily = FontFamily.Monospace,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
+                    val modificador = Modifier.padding(margenes)
+                    BackHandler(enabled = pantalla != Pantalla.Inicio && !firmando) { volverAlInicio() }
+                    when (pantalla) {
+                        Pantalla.Inicio -> PantallaInicio(
+                            certificado = certificado,
+                            preparando = preparando,
+                            alElegirPdf = { elegirPdf.launch(arrayOf("application/pdf")) },
+                            alAbrirPruebas = { pantalla = Pantalla.Pruebas },
+                            modifier = modificador,
+                        )
+                        Pantalla.Confirmacion -> PantallaConfirmacion(
+                            documento = documento!!,
+                            certificado = certificado!!,
+                            firmando = firmando,
+                            alCancelar = ::volverAlInicio,
+                            alFirmar = ::firmarDocumento,
+                            modifier = modificador,
+                        )
+                        Pantalla.Resultado -> PantallaResultado(firmado!!.name, firmado!!.length(), ::volverAlInicio, modificador)
+                        Pantalla.Pruebas -> BancoPruebas(modificador)
                     }
                 }
+            }
+        }
+    }
+
+    private fun volverAlInicio() {
+        actualizarCertificado()
+        documento = null
+        pantalla = Pantalla.Inicio
+    }
+
+    private fun actualizarCertificado() {
+        certificado = runCatching {
+            claves.cadena().takeIf { it.size >= 2 }?.first()?.let(ResumenCertificado::de)
+        }.onFailure { registrar("FM-07: no se pudo leer el certificado: ${it.javaClass.simpleName}: ${it.message}") }
+            .getOrNull()
+    }
+
+    /** FM-08: copia, resumen y vista previa fuera del hilo principal. */
+    private fun prepararDocumento(uri: Uri) {
+        preparando = true
+        lifecycleScope.launch {
+            try {
+                val preparado = withContext(Dispatchers.IO) { DocumentoPorFirmar.preparar(this@MainActivity, uri) }
+                documento = preparado
+                registrar("FM-08: documento preparado, ${preparado.tamano} bytes, ${preparado.paginas} página(s), SHA-256 ${preparado.sha256}")
+                pantalla = Pantalla.Confirmacion
+            } catch (e: Exception) {
+                avisar("No se pudo abrir el PDF", e)
+            } finally {
+                preparando = false
+            }
+        }
+    }
+
+    /** FM-08: solo se firma tras la confirmación en pantalla y la autenticación (FM-04). */
+    private fun firmarDocumento() {
+        val porFirmar = documento ?: return
+        autorizar("FM-08", "Autorizar firma", "${porFirmar.nombre} · SHA-256 ${porFirmar.sha256.take(16)}…") { firma ->
+            firmando = true
+            lifecycleScope.launch {
+                try {
+                    val nombre = porFirmar.nombre.replace('/', '_').removeSuffix(".pdf") + "_firmado.pdf"
+                    val destino = File(getExternalFilesDir(CARPETA_FIRMADOS), nombre)
+                    val inicio = System.nanoTime()
+                    withContext(Dispatchers.IO) { FirmadorPdf.firmar(porFirmar.archivo, destino, claves.cadena(), firma) }
+                    val ms = (System.nanoTime() - inicio) / 1_000_000
+                    registrar("FM-08: firmado tras confirmación y autenticación, ${destino.length()} bytes, ${ms} ms; entrada SHA-256 ${porFirmar.sha256}")
+                    firmado = destino
+                    pantalla = Pantalla.Resultado
+                } catch (e: Exception) {
+                    avisar("No se pudo firmar el documento", e)
+                } finally {
+                    firmando = false
+                }
+            }
+        }
+    }
+
+    private fun avisar(mensaje: String, e: Exception) {
+        registrar("$mensaje: ${e.javaClass.simpleName}: ${e.message}")
+        Toast.makeText(this, mensaje, Toast.LENGTH_LONG).show()
+    }
+
+    @Composable
+    private fun BancoPruebas(modifier: Modifier) {
+        Column(
+            modifier = modifier
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            TextButton(onClick = ::volverAlInicio) { Text("← Volver") }
+            Text("Pruebas técnicas · I1–I3", style = MaterialTheme.typography.titleLarge)
+            BotonAccion("Generar clave (StrongBox)") { generarClave() }
+            BotonAccion("Consultar KeyInfo") { consultarKeyInfo() }
+            BotonAccion("Firmar prueba con autenticación") { firmarConAutenticacion() }
+            BotonAccion("Firmar sin autenticación (debe fallar)") { firmarSinAutenticacion() }
+            BotonAccion("Intentar exportar la clave privada") { intentarExportar() }
+            BotonAccion("Generar CSR (FM-06)") { generarCsr() }
+            BotonAccion("Cargar certificado (FM-07)") { cargarCertificado() }
+            BotonAccion("Crear PDF de prueba") { crearPdfPrueba() }
+            BotonAccion("Firmar PDF de prueba (R2)") { firmarPdfPrueba() }
+            OutlinedButton(onClick = { probarRechazoStrongBox() }, modifier = Modifier.fillMaxWidth()) {
+                Text("Probar FM-03: RSA 4096 en StrongBox")
+            }
+            OutlinedButton(onClick = { eliminarClave() }, modifier = Modifier.fillMaxWidth()) {
+                Text("Eliminar clave")
+            }
+            SelectionContainer {
+                Text(
+                    salida.joinToString("\n"),
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         }
     }
@@ -311,5 +426,6 @@ class MainActivity : FragmentActivity() {
         const val ARCHIVO_CADENA = "cadena.pem"
         const val ARCHIVO_PDF_PRUEBA = "prueba.pdf"
         const val ARCHIVO_PDF_FIRMADO = "prueba_firmado.pdf"
+        const val CARPETA_FIRMADOS = "firmados"
     }
 }

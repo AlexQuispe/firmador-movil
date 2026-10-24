@@ -43,6 +43,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.biometric)
+    // biometric 1.1.0 trae fragment 1.2.5; registerForActivityResult requiere >= 1.3.0
+    implementation(libs.androidx.fragment.ktx)
     implementation(libs.bouncycastle.bcpkix)
     implementation(libs.pdfbox.android) {
         // Trae Bouncy Castle 1.72 (jdk15to18), con las mismas clases que bcpkix-jdk18on
