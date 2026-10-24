@@ -17,6 +17,7 @@ P1 = I0–I4 (FM-01 a FM-10), en orden. P2 (I5: FM-11 a FM-13) solo con P1 cerra
 Requieren `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64` (el `java` del sistema es 15). Paquete: `bo.edu.umsa.firmadormovil`.
 
 - `./gradlew assembleDebug` · `./gradlew installDebug` (S23 por ADB) · `./gradlew testDebugUnitTest` · `./gradlew lint`
+- Instrumentadas: `./gradlew installDebug installDebugAndroidTest` y `adb shell am instrument -w bo.edu.umsa.firmadormovil.test/androidx.test.runner.AndroidJUnitRunner`. **Nunca** `connectedDebugAndroidTest` ni `adb uninstall`: desinstalan la app y destruyen la clave `firma_poc` y su certificado. Las pruebas usan su propio alias.
 - Registros: `adb logcat --pid=$(adb shell pidof bo.edu.umsa.firmadormovil)`
 - Versiones solo en `gradle/libs.versions.toml`. `compileSdk 37` lo exige AndroidX; `targetSdk 36` = Android 16 del dispositivo.
 

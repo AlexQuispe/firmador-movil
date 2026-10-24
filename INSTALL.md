@@ -120,9 +120,15 @@ adb shell am start -n bo.edu.umsa.firmadormovil/.MainActivity
 # Pruebas unitarias
 ./gradlew testDebugUnitTest
 
+# Pruebas instrumentadas en el teléfono (StrongBox, firma de PDF, pantallas)
+./gradlew installDebug installDebugAndroidTest
+adb shell am instrument -w bo.edu.umsa.firmadormovil.test/androidx.test.runner.AndroidJUnitRunner
+
 # Análisis estático
 ./gradlew lint
 ```
+
+⚠️ No usar `./gradlew connectedDebugAndroidTest`: desinstala la app al terminar y con ello elimina la clave y su certificado. Las pruebas instrumentadas usan su propio alias y no tocan la clave de trabajo.
 
 ### ✅ Verificación
 

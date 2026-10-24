@@ -14,6 +14,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -28,6 +29,11 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    sourceSets {
+        // Utilidades comunes a las pruebas unitarias e instrumentadas
+        getByName("test").kotlin.directories.add("src/pruebasComunes/java")
+        getByName("androidTest").kotlin.directories.add("src/pruebasComunes/java")
     }
     packaging {
         resources {
@@ -56,4 +62,9 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
