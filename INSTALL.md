@@ -45,9 +45,11 @@ git checkout develop
 ### Archivos de configuración
 
 ```bash
-# Ubicación del Android SDK (no se versiona)
-echo "sdk.dir=$ANDROID_HOME" > local.properties
+# No se versiona
+cp local.properties.sample local.properties
 ```
+
+En `local.properties`, ajustar `sdk.dir` a la ubicación del Android SDK y `SERVICIO_URL` a la URL de `firmador-servicio`, que solo hace falta para atender solicitudes desde la web (P2). Con `http://` la app permite tráfico sin cifrar solo hacia ese host; con un dominio, usar `https://`. Tras cambiar `SERVICIO_URL`, volver a instalar la app. Sin ella, la firma local funciona igual.
 
 ### 🔏 CA de laboratorio
 

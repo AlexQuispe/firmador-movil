@@ -19,6 +19,7 @@ import androidx.lifecycle.lifecycleScope
 import bo.edu.umsa.firmadormovil.cripto.ResumenCertificado
 import bo.edu.umsa.firmadormovil.documento.ArchivosFirmados
 import bo.edu.umsa.firmadormovil.documento.DocumentoPorFirmar
+import bo.edu.umsa.firmadormovil.servicio.ClienteServicio
 import bo.edu.umsa.firmadormovil.ui.PantallaConfirmacion
 import bo.edu.umsa.firmadormovil.ui.PantallaInicio
 import bo.edu.umsa.firmadormovil.ui.PantallaResultado
@@ -65,7 +66,7 @@ import java.security.Signature
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 
-/** Flujo del titular (FM-08) y pantalla de pruebas técnicas (FM-01 a FM-07, R2). */
+/** Flujo del titular (FM-08), solicitudes del servicio (FM-13) y pantalla de pruebas técnicas (FM-01 a FM-07, R2). */
 class MainActivity : FragmentActivity() {
 
     private enum class Pantalla { Inicio, Confirmacion, Resultado, Pruebas }
@@ -78,6 +79,8 @@ class MainActivity : FragmentActivity() {
     private var firmado by mutableStateOf<File?>(null)
     private var preparando by mutableStateOf(false)
     private var firmando by mutableStateOf(false)
+    /** ID de la solicitud de firmador-servicio en curso (FM-13); null en el flujo local. */
+    private var solicitud: String? = null
     private lateinit var elegirPdf: ActivityResultLauncher<Array<String>>
     private lateinit var guardarComo: ActivityResultLauncher<String>
 
@@ -96,7 +99,7 @@ class MainActivity : FragmentActivity() {
             TemaFirmadorMovil {
                 Scaffold(modifier = Modifier.fillMaxSize()) { margenes ->
                     val modificador = Modifier.padding(margenes)
-                    BackHandler(enabled = pantalla != Pantalla.Inicio && !firmando) { volverAlInicio() }
+                    BackHandler(enabled = pantalla != Pantalla.Inicio && !firmando) { cancelar() }
                     when (pantalla) {
                         Pantalla.Inicio -> PantallaInicio(
                             certificado = certificado,
@@ -109,7 +112,7 @@ class MainActivity : FragmentActivity() {
                             documento = documento!!,
                             certificado = certificado!!,
                             firmando = firmando,
-                            alCancelar = ::volverAlInicio,
+                            alCancelar = ::cancelar,
                             alFirmar = ::firmarDocumento,
                             modifier = modificador,
                         )
@@ -126,6 +129,65 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+        // Tras recrear la actividad no se repite la solicitud: el servicio ya la inició.
+        if (savedInstanceState == null) abrirSolicitud(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        abrirSolicitud(intent)
+    }
+
+    /** FM-13: inicia la solicitud, descarga el PDF y pide la misma confirmación que FM-08. */
+    private fun abrirSolicitud(intent: Intent) {
+        val id = ClienteServicio.idSolicitud(intent) ?: return
+        if (certificado == null) {
+            Toast.makeText(this, "Falta el certificado del titular", Toast.LENGTH_LONG).show()
+            return
+        }
+        solicitud = id
+        preparando = true
+        lifecycleScope.launch {
+            try {
+                val preparado = withContext(Dispatchers.IO) {
+                    val datos = ClienteServicio.iniciar(id)
+                    val descargado = File(cacheDir, "descargado.pdf")
+                    ClienteServicio.descargar(id, descargado)
+                    DocumentoPorFirmar.preparar(this@MainActivity, Uri.fromFile(descargado), datos.nombre).also {
+                        check(it.sha256 == datos.sha256) { "el PDF descargado no coincide con el SHA-256 de la solicitud" }
+                    }
+                }
+                documento = preparado
+                registrar("FM-13: solicitud iniciada, ${preparado.tamano} bytes, SHA-256 ${preparado.sha256}")
+                pantalla = Pantalla.Confirmacion
+            } catch (e: Exception) {
+                solicitud = null
+                avisar("No se pudo abrir la solicitud de firma", e)
+            } finally {
+                preparando = false
+            }
+        }
+    }
+
+    /** En una solicitud del servicio, cancelar registra el rechazo y devuelve al navegador. */
+    private fun cancelar() {
+        val id = solicitud ?: return volverAlInicio()
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) { ClienteServicio.rechazar(id) }
+                registrar("FM-13: rechazo registrado en el servicio")
+                terminarSolicitud("Firma rechazada")
+            } catch (e: Exception) {
+                avisar("No se pudo registrar el rechazo", e)
+            }
+        }
+    }
+
+    /** El enlace no devuelve nada a la web: al cerrar, Android vuelve a Chrome y la web consulta el servicio. */
+    private fun terminarSolicitud(mensaje: String) {
+        Toast.makeText(this, mensaje, Toast.LENGTH_SHORT).show()
+        solicitud = null
+        finish()
     }
 
     private fun volverAlInicio() {
@@ -170,8 +232,15 @@ class MainActivity : FragmentActivity() {
                     withContext(Dispatchers.IO) { FirmadorPdf.firmar(porFirmar.archivo, destino, claves.cadena(), firma) }
                     val ms = (System.nanoTime() - inicio) / 1_000_000
                     registrar("FM-08: firmado tras confirmación y autenticación, ${destino.length()} bytes, ${ms} ms; entrada SHA-256 ${porFirmar.sha256}")
-                    firmado = destino
-                    pantalla = Pantalla.Resultado
+                    val id = solicitud
+                    if (id != null) {
+                        withContext(Dispatchers.IO) { ClienteServicio.entregar(id, destino) }
+                        registrar("FM-13: PDF firmado entregado al servicio")
+                        terminarSolicitud("Firma enviada")
+                    } else {
+                        firmado = destino
+                        pantalla = Pantalla.Resultado
+                    }
                 } catch (e: Exception) {
                     avisar("No se pudo firmar el documento", e)
                 } finally {

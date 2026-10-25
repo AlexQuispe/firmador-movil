@@ -27,9 +27,12 @@ class DocumentoPorFirmar(
     companion object {
         private const val ANCHO_VISTA_PREVIA = 1080
 
-        /** Hace trabajo de E/S: llamar fuera del hilo principal. */
-        fun preparar(contexto: Context, uri: Uri): DocumentoPorFirmar {
-            val nombre = nombreVisible(contexto, uri)
+        /**
+         * Hace trabajo de E/S: llamar fuera del hilo principal. [nombreInformado] es el que informa
+         * firmador-servicio (FM-13); si falta, se usa el nombre visible del archivo elegido.
+         */
+        fun preparar(contexto: Context, uri: Uri, nombreInformado: String? = null): DocumentoPorFirmar {
+            val nombre = nombreInformado ?: nombreVisible(contexto, uri)
             val copia = File(contexto.cacheDir, "por_firmar.pdf")
             contexto.contentResolver.openInputStream(uri).use { entrada ->
                 requireNotNull(entrada) { "no se pudo abrir el documento" }
