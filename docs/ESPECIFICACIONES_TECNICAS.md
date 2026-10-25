@@ -35,7 +35,7 @@ App Android que firma PDF en el mismo teléfono con una clave generada en Androi
 - 🔑 La clave privada solo existe en el Keystore; ningún código la lee ni la exporta (RS01).
 - 🧾 Nunca registrar PIN, credenciales, tokens ni contenido de PDF en los logs (RS05).
 - 👆 La autorización la impone el Keystore (FM-04), no solo la interfaz.
-- 🔗 Un enlace solo abre la app: los datos de la solicitud se piden al servicio autenticado y el usuario confirma cada firma.
+- 🔗 Un enlace solo abre la app y lleva solo el ID: los datos de la solicitud se piden al servicio y el usuario confirma cada firma. La app no lleva credenciales del servicio.
 - 📵 Si se pierde o reinstala la app, la clave se pierde: en un escenario real correspondería revocar y emitir un certificado nuevo.
 
 ## 5. Arquitectura criptográfica
@@ -61,9 +61,10 @@ flowchart LR
 
 ## 6. Integración (P2)
 
-- Enlace: `https://<dominio>/firmar/<id>`, solo con el identificador opaco.
-- App Links: `intent-filter` con `autoVerify=true` y `/.well-known/assetlinks.json` en el dominio.
-- Sin dominio verificable se usa un deep link y se declara como **solución provisional**, no equivalente.
+- Enlace: Intent URI de Chrome `intent://firmar/{id}#Intent;scheme=firmadormovil;package=bo.edu.umsa.firmadormovil;end`, solo con el identificador opaco. La app lo recibe con un `intent-filter` para el esquema `firmadormovil` y el host `firmar`.
+- Chrome entrega el intent solo al paquete indicado: ninguna otra app que declare el esquema recibe el ID, y si la app no está instalada no se abre otra. El paquete no se verifica criptográficamente, a diferencia de un App Link con `assetlinks.json`; un APK distinto con el mismo paquete, instalado en lugar de este, lo recibiría. Se declara como limitación.
+- Al subir el resultado o registrar el rechazo, mostrar «Firma enviada» (o «Firma rechazada») y cerrar la app para que Android vuelva al navegador. El enlace no devuelve nada a la web: el resultado llega a ella a través del servicio.
+- URL del servicio configurable (`SERVICIO_URL` en `local.properties` → `BuildConfig`), por IP o dominio; nunca recibida desde el enlace, para que una web ajena no pueda redirigir los PDF. Con IP y HTTP, permitir tráfico sin cifrar solo para ese host en `network_security_config`; con dominio, HTTPS.
 - Contrato de la API: `firmador-servicio/docs/ESPECIFICACIONES_TECNICAS.md`.
 
 ## 7. Evidencia por ejecución
