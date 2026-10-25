@@ -37,4 +37,10 @@ class DocumentoPorFirmarTest {
         assertEquals(1080, vista.width)
         assertTrue("Carta vertical: más alta que ancha", vista.height > vista.width)
     }
+
+    @Test
+    fun usaElNombreInformadoPorElServicio() {
+        val descargado = PdfPrueba.crear(contexto, File(contexto.cacheDir, "descargado.pdf"))
+        assertEquals("informe.pdf", DocumentoPorFirmar.preparar(contexto, Uri.fromFile(descargado), "informe.pdf").nombre)
+    }
 }
