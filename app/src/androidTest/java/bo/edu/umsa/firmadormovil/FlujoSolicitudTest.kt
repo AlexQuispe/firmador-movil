@@ -44,10 +44,10 @@ class FlujoSolicitudTest {
         val solicitud = ServicioPrueba.crearSolicitud(pdf)
 
         ActivityScenario.launch<MainActivity>(enlace(solicitud)).use { escenario ->
-            compose.waitUntil(15_000) { compose.onAllNodesWithText("Confirmar firma").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(15_000) { compose.onAllNodesWithText("Solicitud de firma").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("fm13_flujo.pdf", substring = true).assertIsDisplayed()
 
-            compose.onNodeWithText("Cancelar").performClick()
+            compose.onNodeWithText("Rechazar").performClick()
 
             esperar { ServicioPrueba.estado(solicitud) == "RECHAZADA" }
             esperar { escenario.state == Lifecycle.State.DESTROYED }

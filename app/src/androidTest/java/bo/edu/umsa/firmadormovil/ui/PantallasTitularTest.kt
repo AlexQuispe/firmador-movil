@@ -86,7 +86,7 @@ class PantallasTitularTest {
     @Test
     fun sinCertificadoNoSePuedeElegirUnPdf() {
         compose.setContent { PantallaInicio(certificado = null, preparando = false, alElegirPdf = {}, alAbrirPruebas = {}) }
-        compose.onNodeWithText("No hay un certificado cargado", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Aún no hay un certificado", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Elegir PDF para firmar").assertIsNotEnabled()
     }
 

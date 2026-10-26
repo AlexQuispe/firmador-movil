@@ -21,6 +21,7 @@ import bo.edu.umsa.firmadormovil.documento.ArchivosFirmados
 import bo.edu.umsa.firmadormovil.documento.DocumentoPorFirmar
 import bo.edu.umsa.firmadormovil.servicio.ClienteServicio
 import bo.edu.umsa.firmadormovil.ui.PantallaConfirmacion
+import bo.edu.umsa.firmadormovil.ui.PantallaError
 import bo.edu.umsa.firmadormovil.ui.PantallaInicio
 import bo.edu.umsa.firmadormovil.ui.PantallaResultado
 import kotlinx.coroutines.Dispatchers
@@ -65,11 +66,14 @@ import java.security.MessageDigest
 import java.security.Signature
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
+import java.util.Date
 
 /** Flujo del titular (FM-08), solicitudes del servicio (FM-13) y pantalla de pruebas técnicas (FM-01 a FM-07, R2). */
 class MainActivity : FragmentActivity() {
 
-    private enum class Pantalla { Inicio, Confirmacion, Resultado, Pruebas }
+    private enum class Pantalla { Inicio, Confirmacion, Resultado, Error, Pruebas }
+
+    private class Fallo(val mensaje: String, val detalle: String)
 
     private val claves by lazy { AlmacenClaves() }
     private val salida = mutableStateListOf<String>()
@@ -77,10 +81,13 @@ class MainActivity : FragmentActivity() {
     private var certificado by mutableStateOf<ResumenCertificado?>(null)
     private var documento by mutableStateOf<DocumentoPorFirmar?>(null)
     private var firmado by mutableStateOf<File?>(null)
+    private var firmadoEn by mutableStateOf<Date?>(null)
+    private var nivelSeguridad by mutableStateOf<String?>(null)
+    private var fallo by mutableStateOf<Fallo?>(null)
     private var preparando by mutableStateOf(false)
     private var firmando by mutableStateOf(false)
     /** ID de la solicitud de firmador-servicio en curso (FM-13); null en el flujo local. */
-    private var solicitud: String? = null
+    private var solicitud by mutableStateOf<String?>(null)
     private lateinit var elegirPdf: ActivityResultLauncher<Array<String>>
     private lateinit var guardarComo: ActivityResultLauncher<String>
 
@@ -107,6 +114,7 @@ class MainActivity : FragmentActivity() {
                             alElegirPdf = { elegirPdf.launch(arrayOf("application/pdf")) },
                             alAbrirPruebas = { pantalla = Pantalla.Pruebas },
                             modifier = modificador,
+                            nivelSeguridad = nivelSeguridad,
                         )
                         Pantalla.Confirmacion -> PantallaConfirmacion(
                             documento = documento!!,
@@ -115,6 +123,7 @@ class MainActivity : FragmentActivity() {
                             alCancelar = ::cancelar,
                             alFirmar = ::firmarDocumento,
                             modifier = modificador,
+                            desdeServicio = solicitud != null,
                         )
                         Pantalla.Resultado -> PantallaResultado(
                             nombre = firmado!!.name,
@@ -122,6 +131,17 @@ class MainActivity : FragmentActivity() {
                             alGuardar = { guardarComo.launch(firmado!!.name) },
                             alCompartir = ::compartirFirmado,
                             alVolver = ::volverAlInicio,
+                            modifier = modificador,
+                            firmante = certificado?.titular,
+                            firmadoEn = firmadoEn,
+                        )
+                        Pantalla.Error -> PantallaError(
+                            mensaje = fallo!!.mensaje,
+                            detalle = fallo!!.detalle,
+                            nombre = documento?.nombre,
+                            textoVolver = if (solicitud != null) "Rechazar solicitud" else "Volver al inicio",
+                            alReintentar = { pantalla = Pantalla.Confirmacion },
+                            alVolver = ::cancelar,
                             modifier = modificador,
                         )
                         Pantalla.Pruebas -> BancoPruebas(modificador)
@@ -201,6 +221,9 @@ class MainActivity : FragmentActivity() {
             claves.cadena().takeIf { it.size >= 2 }?.first()?.let(ResumenCertificado::de)
         }.onFailure { registrar("FM-07: no se pudo leer el certificado: ${it.javaClass.simpleName}: ${it.message}") }
             .getOrNull()
+        nivelSeguridad = runCatching {
+            if (claves.existe()) AlmacenClaves.nombreNivelSeguridad(claves.keyInfo().securityLevel) else null
+        }.getOrNull()
     }
 
     /** FM-08: copia, resumen y vista previa fuera del hilo principal. */
@@ -223,7 +246,13 @@ class MainActivity : FragmentActivity() {
     /** FM-08: solo se firma tras la confirmación en pantalla y la autenticación (FM-04). */
     private fun firmarDocumento() {
         val porFirmar = documento ?: return
-        autorizar("FM-08", "Autorizar firma", "${porFirmar.nombre} · SHA-256 ${porFirmar.sha256.take(16)}…") { firma ->
+        val alFallar = { codigo: Int, texto: CharSequence ->
+            // Si el titular cancela, sigue en la confirmación; solo los fallos reales llevan a la pantalla de error.
+            if (codigo !in CANCELACIONES) {
+                mostrarFallo("No se pudo verificar su identidad, así que la clave no se usó.", "BiometricPrompt · código $codigo: $texto")
+            }
+        }
+        autorizar("FM-08", "Autorizar firma", "${porFirmar.nombre} · SHA-256 ${porFirmar.sha256.take(16)}…", alFallar) { firma ->
             firmando = true
             lifecycleScope.launch {
                 try {
@@ -239,10 +268,12 @@ class MainActivity : FragmentActivity() {
                         terminarSolicitud("Firma enviada")
                     } else {
                         firmado = destino
+                        firmadoEn = Date()
                         pantalla = Pantalla.Resultado
                     }
                 } catch (e: Exception) {
-                    avisar("No se pudo firmar el documento", e)
+                    registrar("No se pudo firmar el documento: ${e.javaClass.simpleName}: ${e.message}")
+                    mostrarFallo("La firma no se completó. El documento original no se modificó.", e.javaClass.simpleName)
                 } finally {
                     firmando = false
                 }
@@ -274,6 +305,11 @@ class MainActivity : FragmentActivity() {
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         startActivity(Intent.createChooser(envio, "Compartir PDF firmado"))
         registrar("FM-10: hoja de compartir abierta para el PDF firmado (${archivo.length()} bytes)")
+    }
+
+    private fun mostrarFallo(mensaje: String, detalle: String) {
+        fallo = Fallo(mensaje, detalle)
+        pantalla = Pantalla.Error
     }
 
     private fun avisar(mensaje: String, e: Exception) {
@@ -377,7 +413,13 @@ class MainActivity : FragmentActivity() {
     }
 
     /** FM-04: el Keystore solo permite que [alAutorizar] firme después de que el usuario se autentica. */
-    private fun autorizar(paso: String, titulo: String, subtitulo: String, alAutorizar: (Signature) -> Unit) = protegido(paso) {
+    private fun autorizar(
+        paso: String,
+        titulo: String,
+        subtitulo: String,
+        alFallar: (Int, CharSequence) -> Unit = { _, _ -> },
+        alAutorizar: (Signature) -> Unit,
+    ) = protegido(paso) {
         val dialogo = BiometricPrompt(
             this,
             ContextCompat.getMainExecutor(this),
@@ -386,8 +428,10 @@ class MainActivity : FragmentActivity() {
                     alAutorizar(result.cryptoObject?.signature ?: error("sin CryptoObject"))
                 }
 
-                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) =
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     registrar("$paso: autenticación cancelada o fallida ($errorCode: $errString)")
+                    alFallar(errorCode, errString)
+                }
             },
         )
         val info = BiometricPrompt.PromptInfo.Builder()
@@ -528,6 +572,11 @@ class MainActivity : FragmentActivity() {
 
     private companion object {
         const val ETIQUETA = "FirmadorMovil"
+        private val CANCELACIONES = setOf(
+            BiometricPrompt.ERROR_USER_CANCELED,
+            BiometricPrompt.ERROR_NEGATIVE_BUTTON,
+            BiometricPrompt.ERROR_CANCELED,
+        )
         const val ALIAS_SONDA = "fm03_sonda"
         const val DATOS_PRUEBA = "Datos de prueba I1 - firmador movil"
         const val ARCHIVO_CSR = "titular.csr"
