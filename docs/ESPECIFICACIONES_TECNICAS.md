@@ -29,6 +29,7 @@ App Android que firma PDF en el mismo teléfono con una clave generada en Androi
 | FM-11 | Mostrar titular, emisor y vigencia del certificado                                                                                                   | P2        | Comparación con el certificado                  | RF06             |
 | FM-12 | Obtener y exportar la cadena de atestación (`setAttestationChallenge`)                                                                               | P2        | Cadena guardada y verificada fuera del teléfono | RS07             |
 | FM-13 | Abrir solicitudes desde enlace, descargar el PDF y devolver el resultado al servicio                                                                 | P2        | Prueba extremo a extremo                        | RF07             |
+| FM-14 | Armar el sujeto de la CSR como lista de OID y valor, un RDN por componente y en el orden recibido, como Jacobitus (I6)                               | P3        | Comparación con una CSR de Jacobitus            | RF02, C01        |
 
 ## 4. Seguridad
 

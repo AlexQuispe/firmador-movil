@@ -1,0 +1,97 @@
+# Jerarquía de laboratorio de I6: solo para pruebas, sin validez legal.
+# Imita la estructura de la ECA AGETIC (raíz -> CA emisora -> titular) y el perfil de su certificado de
+# persona natural. Los nombres no son los de la ATT ni los de AGETIC. Uso: ver ca-i6.sh.
+
+BASE = http://localhost:8099
+
+# ---------- nombres (orden DER: CN, O, C, como la CA de AGETIC) ----------
+
+[ dn_raiz ]
+CN = Entidad Certificadora Raiz de Laboratorio (sin validez legal)
+O  = Prueba de concepto firmador movil
+C  = BO
+
+[ dn_ca ]
+CN = Entidad Certificadora de Laboratorio (sin validez legal)
+O  = Prueba de concepto firmador movil
+C  = BO
+
+[ req_raiz ]
+distinguished_name = dn_raiz
+prompt             = no
+string_mask        = utf8only
+utf8               = yes
+
+[ req_ca ]
+distinguished_name = dn_ca
+prompt             = no
+string_mask        = utf8only
+utf8               = yes
+
+# ---------- extensiones ----------
+
+[ ext_raiz ]
+subjectKeyIdentifier   = hash
+basicConstraints       = critical, CA:TRUE
+keyUsage               = critical, keyCertSign, cRLSign
+
+# Mismo orden y criticidad que firmadigital_bo3.pem; la política es la de la raíz de la ATT
+[ ext_ca ]
+authorityInfoAccess    = caIssuers;URI:$BASE/raiz.pem
+subjectKeyIdentifier   = hash
+basicConstraints       = CA:TRUE, pathlen:0
+authorityKeyIdentifier = keyid
+certificatePolicies    = @politica_raiz
+crlDistributionPoints  = crl_raiz
+keyUsage               = keyCertSign, cRLSign
+
+[ politica_raiz ]
+policyIdentifier = 2.16.68.0.0.0.1.14.1.2.0.0.0.0
+CPS.1            = https://ecrb.att.gob.bo/pcecrb.pdf
+
+[ crl_raiz ]
+fullname  = URI:$BASE/raiz.crl
+CRLissuer = dirName:dn_raiz
+
+# Perfil del certificado de persona natural de la ECA AGETIC (I6, criterio A3): mismo orden de
+# extensiones y ninguna crítica. Sin OCSP: el laboratorio no tiene respondedor.
+# certificatePolicies va en DER porque OpenSSL 3.0 no codifica bien el aviso en BMPString; son los mismos
+# bytes del certificado de AGETIC: política 2.16.68.0.0.0.1.14.1.2.0.1.0.0.1 con su CPS y política
+# 2.16.68.0.0.0.1.14.1.2.0.1.2.1.1.0 con el texto «Persona Natural Firma Simple».
+[ ext_titular ]
+authorityInfoAccess    = caIssuers;URI:$BASE/ca.pem
+subjectKeyIdentifier   = hash
+basicConstraints       = CA:FALSE
+authorityKeyIdentifier = keyid
+certificatePolicies    = DER:3081BE305F060E6044000000010E01020001000001304D304B06082B06010505070201163F68747470733A2F2F7777772E6669726D616469676974616C2E626F2F706F6C6974696361732D64652D63657274696669636163696F6E2D323032362E706466305B060F6044000000010E01020001020101003048304606082B06010505070202303A1E380050006500720073006F006E00610020004E00610074007500720061006C0020004600690072006D0061002000530069006D0070006C0065
+crlDistributionPoints  = crl_ca
+keyUsage               = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+extendedKeyUsage       = clientAuth, codeSigning, emailProtection
+subjectAltName         = email:titular.prueba@example.com
+
+[ crl_ca ]
+fullname  = URI:$BASE/ca.crl
+CRLissuer = dirName:dn_ca
+
+# ---------- CRL (openssl ca -gencrl) ----------
+
+[ ca_raiz ]
+database         = raiz.index
+crlnumber        = raiz.crlnumber
+certificate      = raiz.pem
+private_key      = raiz.key
+default_md       = sha256
+default_crl_days = 30
+crl_extensions   = ext_crl
+
+[ ca_ca ]
+database         = ca.index
+crlnumber        = ca.crlnumber
+certificate      = ca.pem
+private_key      = ca.key
+default_md       = sha256
+default_crl_days = 30
+crl_extensions   = ext_crl
+
+[ ext_crl ]
+authorityKeyIdentifier = keyid

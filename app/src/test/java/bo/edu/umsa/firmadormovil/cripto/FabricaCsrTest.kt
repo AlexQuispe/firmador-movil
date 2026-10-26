@@ -14,8 +14,10 @@ class FabricaCsrTest {
 
     private val parClaves = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
 
+    private val sujeto = FabricaCsr.sujeto(FabricaCsr.SUJETO_PREDETERMINADO)
+
     private fun construirCsr() = FabricaCsr.construir(
-        FabricaCsr.SUJETO_PREDETERMINADO,
+        sujeto,
         parClaves.public,
         Signature.getInstance(AlmacenClaves.ALGORITMO_FIRMA).apply { initSign(parClaves.private) },
     )
@@ -29,7 +31,7 @@ class FabricaCsrTest {
     @Test
     fun laCsrLlevaSujetoClaveYAlgoritmo() {
         val csr = JcaPKCS10CertificationRequest(construirCsr())
-        assertEquals(FabricaCsr.SUJETO_PREDETERMINADO, csr.subject)
+        assertEquals(sujeto, csr.subject)
         assertArrayEquals(parClaves.public.encoded, csr.publicKey.encoded)
         assertEquals("1.2.840.113549.1.1.11", csr.signatureAlgorithm.algorithm.id) // sha256WithRSAEncryption
     }

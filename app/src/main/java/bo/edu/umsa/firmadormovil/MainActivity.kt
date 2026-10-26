@@ -430,9 +430,10 @@ class MainActivity : FragmentActivity() {
 
     /** FM-06: se guarda en el almacenamiento externo propio de la app para extraerla con adb. */
     private fun generarCsr() {
-        autorizar("FM-06", "Autorizar solicitud de certificado", FabricaCsr.SUJETO_PREDETERMINADO.toString()) { firma ->
+        val componentes = FabricaCsr.SUJETO_PREDETERMINADO
+        autorizar("FM-06", "Autorizar solicitud de certificado", componentes.joinToString(", ") { it.valor }) { firma ->
             val clavePublica = claves.clavePublica()
-            val csr = FabricaCsr.construir(FabricaCsr.SUJETO_PREDETERMINADO, clavePublica, firma)
+            val csr = FabricaCsr.construir(FabricaCsr.sujeto(componentes), clavePublica, firma)
             val archivo = File(getExternalFilesDir(null), ARCHIVO_CSR)
             archivo.writeText(FabricaCsr.aPem(csr))
             registrar("FM-06: CSR PKCS #10 generada, subject='${csr.subject}', ${archivo.length()} bytes")

@@ -89,6 +89,19 @@ Luego, en la app, pulsar **Cargar certificado**: se guarda solo si su clave púb
 
 ⚠️ `ca.key` es la clave privada de la CA: no se comparte ni se sube al repositorio.
 
+#### Jerarquía con el perfil de la ECA (I6)
+
+`ca-laboratorio-i6/` arma una raíz y una CA emisora de laboratorio, y emite el certificado del titular con el perfil de persona natural de la ECA AGETIC (políticas, CRL, AIA, usos y SAN). Tampoco tiene validez legal.
+
+```bash
+cd ca-laboratorio-i6
+./ca-i6.sh crear                  # raíz y CA emisora, una sola vez
+adb pull /sdcard/Android/data/bo.edu.umsa.firmadormovil/files/titular.csr
+./ca-i6.sh emitir titular.csr     # titular.pem, cadena.pem (titular, CA y raíz) y CRL
+adb push cadena.pem /sdcard/Android/data/bo.edu.umsa.firmadormovil/files/
+./ca-i6.sh servir                 # publica raíz, CA y CRL en http://localhost:8099 para los validadores del equipo
+```
+
 ### Preparación del teléfono
 
 1. 📱 **Ajustes → Acerca del teléfono → Información de software**: tocar 7 veces **Número de compilación**.
