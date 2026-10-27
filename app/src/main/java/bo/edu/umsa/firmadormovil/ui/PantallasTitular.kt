@@ -45,6 +45,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -111,8 +112,10 @@ fun PantallaConfirmacion(
     alCancelar: () -> Unit,
     alFirmar: () -> Unit,
     modifier: Modifier = Modifier,
-    desdeServicio: Boolean = false,
+    solicitadoPor: String? = null,
+    sistema: String? = null,
 ) {
+    val desdeServicio = solicitadoPor != null
     Column(modifier.fillMaxSize()) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = alCancelar, enabled = !firmando) {
@@ -131,7 +134,7 @@ fun PantallaConfirmacion(
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (desdeServicio) AvisoServicio()
+            if (solicitadoPor != null) AvisoServicio(solicitadoPor, sistema)
             Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
                 Column(
                     Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 10.dp),
@@ -418,13 +421,37 @@ private fun Paso(numero: Int, titulo: String, detalle: String) {
 }
 
 @Composable
-private fun AvisoServicio() {
+private fun AvisoServicio(origen: String, sistema: String?) {
     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Iconos.Enlace, null, Modifier.size(20.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Enviada desde firmador-servicio", style = MaterialTheme.typography.titleSmall)
-                Text("Al firmar, el PDF vuelve al servicio y usted regresa al navegador.", style = MaterialTheme.typography.bodySmall)
+        val secundario = LocalContentColor.current.copy(alpha = 0.75f)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), modifier = Modifier.size(40.dp)) {
+                    Box(contentAlignment = Alignment.Center) { Icon(Iconos.Enlace, null, Modifier.size(20.dp)) }
+                }
+                // El nombre lo declara el solicitante; el host es el servicio al que se conecta la app.
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "SOLICITADA POR",
+                        style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.7.sp),
+                        color = secundario,
+                    )
+                    if (sistema != null) {
+                        Text(sistema, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(origen, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace, color = secundario)
+                    } else {
+                        Text(origen, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            }
+            HorizontalDivider(color = LocalContentColor.current.copy(alpha = 0.12f))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Iconos.Info, null, Modifier.size(16.dp), tint = secundario)
+                Text(
+                    "Al firmar, el documento se envía a este sistema y usted vuelve al navegador.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = secundario,
+                )
             }
         }
     }

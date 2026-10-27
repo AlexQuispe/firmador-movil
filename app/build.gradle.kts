@@ -1,4 +1,3 @@
-import java.net.URI
 import java.util.Properties
 
 plugins {
@@ -6,27 +5,11 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// FM-13: URL de firmador-servicio, solo en local.properties (fuera de git); nunca desde el enlace.
+// Servicio de las pruebas instrumentadas de FM-13, solo en local.properties (fuera de git).
+// La app no lo usa: cada enlace trae la URL del servicio que emitió la solicitud.
 val servicioUrl = Properties()
     .apply { rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use(::load) }
     .getProperty("SERVICIO_URL").orEmpty()
-
-// Con HTTP por IP se permite tráfico sin cifrar solo hacia ese host.
-val redGenerada = layout.buildDirectory.dir("generated/res/red").get().asFile
-File(redGenerada, "xml/network_security_config.xml").apply {
-    parentFile.mkdirs()
-    val host = runCatching { URI(servicioUrl) }.getOrNull()?.takeIf { it.scheme == "http" }?.host
-    writeText(
-        if (host == null) "<network-security-config />\n"
-        else """
-            <network-security-config>
-                <domain-config cleartextTrafficPermitted="true">
-                    <domain includeSubdomains="false">$host</domain>
-                </domain-config>
-            </network-security-config>
-        """.trimIndent() + "\n"
-    )
-}
 
 android {
     namespace = "bo.edu.umsa.firmadormovil"
@@ -58,7 +41,6 @@ android {
         buildConfig = true
     }
     sourceSets {
-        getByName("main").res.directories.add(redGenerada.path)
         // Utilidades comunes a las pruebas unitarias e instrumentadas
         getByName("test").kotlin.directories.add("src/pruebasComunes/java")
         getByName("androidTest").kotlin.directories.add("src/pruebasComunes/java")

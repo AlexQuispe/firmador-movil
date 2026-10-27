@@ -86,8 +86,8 @@ class MainActivity : FragmentActivity() {
     private var fallo by mutableStateOf<Fallo?>(null)
     private var preparando by mutableStateOf(false)
     private var firmando by mutableStateOf(false)
-    /** ID de la solicitud de firmador-servicio en curso (FM-13); null en el flujo local. */
-    private var solicitud by mutableStateOf<String?>(null)
+    /** Solicitud del servicio en curso (FM-13); null en el flujo local. */
+    private var solicitud by mutableStateOf<ClienteServicio.Enlace?>(null)
     private lateinit var elegirPdf: ActivityResultLauncher<Array<String>>
     private lateinit var guardarComo: ActivityResultLauncher<String>
 
@@ -123,7 +123,8 @@ class MainActivity : FragmentActivity() {
                             alCancelar = ::cancelar,
                             alFirmar = ::firmarDocumento,
                             modifier = modificador,
-                            desdeServicio = solicitud != null,
+                            solicitadoPor = solicitud?.origen,
+                            sistema = solicitud?.sistema,
                         )
                         Pantalla.Resultado -> PantallaResultado(
                             nombre = firmado!!.name,
@@ -160,25 +161,25 @@ class MainActivity : FragmentActivity() {
 
     /** FM-13: inicia la solicitud, descarga el PDF y pide la misma confirmación que FM-08. */
     private fun abrirSolicitud(intent: Intent) {
-        val id = ClienteServicio.idSolicitud(intent) ?: return
+        val enlace = ClienteServicio.enlace(intent) ?: return
         if (certificado == null) {
             Toast.makeText(this, "Falta el certificado del titular", Toast.LENGTH_LONG).show()
             return
         }
-        solicitud = id
+        solicitud = enlace
         preparando = true
         lifecycleScope.launch {
             try {
                 val preparado = withContext(Dispatchers.IO) {
-                    val datos = ClienteServicio.iniciar(id)
+                    val datos = ClienteServicio.iniciar(enlace)
                     val descargado = File(cacheDir, "descargado.pdf")
-                    ClienteServicio.descargar(id, descargado)
+                    ClienteServicio.descargar(enlace, descargado)
                     DocumentoPorFirmar.preparar(this@MainActivity, Uri.fromFile(descargado), datos.nombre).also {
                         check(it.sha256 == datos.sha256) { "el PDF descargado no coincide con el SHA-256 de la solicitud" }
                     }
                 }
                 documento = preparado
-                registrar("FM-13: solicitud iniciada, ${preparado.tamano} bytes, SHA-256 ${preparado.sha256}")
+                registrar("FM-13: solicitud de ${enlace.origen} iniciada, ${preparado.tamano} bytes, SHA-256 ${preparado.sha256}")
                 pantalla = Pantalla.Confirmacion
             } catch (e: Exception) {
                 solicitud = null
@@ -191,10 +192,10 @@ class MainActivity : FragmentActivity() {
 
     /** En una solicitud del servicio, cancelar registra el rechazo y devuelve al navegador. */
     private fun cancelar() {
-        val id = solicitud ?: return volverAlInicio()
+        val enlace = solicitud ?: return volverAlInicio()
         lifecycleScope.launch {
             try {
-                withContext(Dispatchers.IO) { ClienteServicio.rechazar(id) }
+                withContext(Dispatchers.IO) { ClienteServicio.rechazar(enlace) }
                 registrar("FM-13: rechazo registrado en el servicio")
                 terminarSolicitud("Firma rechazada")
             } catch (e: Exception) {
@@ -252,7 +253,9 @@ class MainActivity : FragmentActivity() {
                 mostrarFallo("No se pudo verificar su identidad, así que la clave no se usó.", "BiometricPrompt · código $codigo: $texto")
             }
         }
-        autorizar("FM-08", "Autorizar firma", "${porFirmar.nombre} · SHA-256 ${porFirmar.sha256.take(16)}…", alFallar) { firma ->
+        val solicitante = solicitud?.run { if (sistema != null) "$sistema ($origen)" else origen }
+        val detalle = listOfNotNull(solicitante, porFirmar.nombre, "SHA-256 ${porFirmar.sha256.take(16)}…").joinToString(" · ")
+        autorizar("FM-08", "Autorizar firma", detalle, alFallar) { firma ->
             firmando = true
             lifecycleScope.launch {
                 try {
@@ -261,9 +264,9 @@ class MainActivity : FragmentActivity() {
                     withContext(Dispatchers.IO) { FirmadorPdf.firmar(porFirmar.archivo, destino, claves.cadena(), firma) }
                     val ms = (System.nanoTime() - inicio) / 1_000_000
                     registrar("FM-08: firmado tras confirmación y autenticación, ${destino.length()} bytes, ${ms} ms; entrada SHA-256 ${porFirmar.sha256}")
-                    val id = solicitud
-                    if (id != null) {
-                        withContext(Dispatchers.IO) { ClienteServicio.entregar(id, destino) }
+                    val enlace = solicitud
+                    if (enlace != null) {
+                        withContext(Dispatchers.IO) { ClienteServicio.entregar(enlace, destino) }
                         registrar("FM-13: PDF firmado entregado al servicio")
                         terminarSolicitud("Firma enviada")
                     } else {

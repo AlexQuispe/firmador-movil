@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import bo.edu.umsa.firmadormovil.BuildConfig
 import bo.edu.umsa.firmadormovil.cripto.AlmacenClaves
 import bo.edu.umsa.firmadormovil.cripto.FirmadorPdf
 import bo.edu.umsa.firmadormovil.pruebas.CertificadosPrueba
@@ -19,7 +20,7 @@ import java.io.File
 import java.security.MessageDigest
 import java.security.Signature
 
-/** FM-13: el enlace solo abre solicitudes con ID UUID, y las llamadas cumplen el contrato del servicio. */
+/** FM-13: el enlace solo abre solicitudes con ID UUID y servicio admitido, y las llamadas cumplen el contrato del servicio. */
 @RunWith(AndroidJUnit4::class)
 class ClienteServicioTest {
 
@@ -28,21 +29,28 @@ class ClienteServicioTest {
 
     private fun enlace(texto: String) = Intent(Intent.ACTION_VIEW, Uri.parse(texto))
 
+    private val servicio = Uri.encode("https://firma.ejemplo.bo")
+
     @Test
-    fun aceptaElEnlaceDeFirmaConUnIdUuid() {
-        assertEquals(id, ClienteServicio.idSolicitud(enlace("firmadormovil://firmar/$id")))
+    fun aceptaElEnlaceDeFirmaConUnIdUuidYElServicio() {
+        val abierto = ClienteServicio.enlace(enlace("firmadormovil://firmar/$id?servicio=$servicio"))!!
+        assertEquals(id, abierto.id)
+        assertEquals("https://firma.ejemplo.bo", abierto.servicio)
+        assertEquals("firma.ejemplo.bo", abierto.origen)
+        assertNull(abierto.sistema)
     }
 
     @Test
     fun ignoraOtrosEsquemasHostsEIdsQueNoSonUuid() {
         listOf(
-            "https://firmar/$id",
-            "firmadormovil://otra/$id",
-            "firmadormovil://firmar/123",
-            "firmadormovil://firmar/..%2F$id",
-            "firmadormovil://firmar/",
-        ).forEach { assertNull(it, ClienteServicio.idSolicitud(enlace(it))) }
-        assertNull(ClienteServicio.idSolicitud(Intent(Intent.ACTION_MAIN)))
+            "https://firmar/$id?servicio=$servicio",
+            "firmadormovil://otra/$id?servicio=$servicio",
+            "firmadormovil://firmar/123?servicio=$servicio",
+            "firmadormovil://firmar/..%2F$id?servicio=$servicio",
+            "firmadormovil://firmar/?servicio=$servicio",
+            "firmadormovil://firmar/$id",
+        ).forEach { assertNull(it, ClienteServicio.enlace(enlace(it))) }
+        assertNull(ClienteServicio.enlace(Intent(Intent.ACTION_MAIN)))
     }
 
     @Test
@@ -52,7 +60,7 @@ class ClienteServicioTest {
         val datos = ClienteServicio.iniciar(solicitud)
         assertEquals("fm13_original.pdf", datos.nombre)
         assertEquals(sha256(original), datos.sha256)
-        assertEquals("EN_PROCESO", ServicioPrueba.estado(solicitud))
+        assertEquals("EN_PROCESO", ServicioPrueba.estado(solicitud.id))
 
         val descargado = File(contexto.cacheDir, "fm13_descargado.pdf")
         ClienteServicio.descargar(solicitud, descargado)
@@ -71,8 +79,8 @@ class ClienteServicioTest {
         FirmadorPdf.firmar(original, firmado, CertificadosPrueba.cadena(claves.public), firma)
         ClienteServicio.entregar(solicitud, firmado)
 
-        assertEquals("FIRMADA", ServicioPrueba.estado(solicitud))
-        val documento = ServicioPrueba.documento(solicitud)
+        assertEquals("FIRMADA", ServicioPrueba.estado(solicitud.id))
+        val documento = ServicioPrueba.documento(solicitud.id)
         assertEquals(sha256(firmado), documento.getString("sha256"))
         val firmas = documento.getJSONArray("firmas")
         assertEquals("Titular de pruebas", firmas.getJSONObject(firmas.length() - 1).getString("titular"))
@@ -85,13 +93,13 @@ class ClienteServicioTest {
 
         ClienteServicio.rechazar(solicitud)
 
-        assertEquals("RECHAZADA", ServicioPrueba.estado(solicitud))
+        assertEquals("RECHAZADA", ServicioPrueba.estado(solicitud.id))
     }
 
-    private fun solicitudNueva(nombre: String): Pair<String, File> {
+    private fun solicitudNueva(nombre: String): Pair<ClienteServicio.Enlace, File> {
         assumeTrue("requiere firmador-servicio en SERVICIO_URL", ServicioPrueba.disponible())
         val pdf = PdfPrueba.crear(contexto, File(contexto.cacheDir, nombre))
-        return ServicioPrueba.crearSolicitud(pdf) to pdf
+        return ClienteServicio.Enlace(ServicioPrueba.crearSolicitud(pdf), BuildConfig.SERVICIO_URL) to pdf
     }
 
     private fun sha256(archivo: File): String =

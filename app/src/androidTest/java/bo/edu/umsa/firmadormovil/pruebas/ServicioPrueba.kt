@@ -8,7 +8,7 @@ import java.net.URL
 
 /**
  * Rutas de la web de firmador-servicio para preparar solicitudes reales en las pruebas de FM-13.
- * Usa el servicio de SERVICIO_URL: cada prueba deja un documento de prueba en él.
+ * Usa el servicio de SERVICIO_URL (solo para pruebas): cada prueba deja un documento de prueba en él.
  */
 object ServicioPrueba {
 

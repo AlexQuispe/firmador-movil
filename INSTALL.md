@@ -49,7 +49,7 @@ git checkout develop
 cp local.properties.sample local.properties
 ```
 
-En `local.properties`, ajustar `sdk.dir` a la ubicación del Android SDK y `SERVICIO_URL` a la URL de `firmador-servicio`, que solo hace falta para atender solicitudes desde la web (P2). Con `http://` la app permite tráfico sin cifrar solo hacia ese host; con un dominio, usar `https://`. Tras cambiar `SERVICIO_URL`, volver a instalar la app. Sin ella, la firma local funciona igual.
+En `local.properties`, ajustar `sdk.dir` a la ubicación del Android SDK y, para las pruebas instrumentadas de FM-13, `SERVICIO_URL` a la URL de `firmador-servicio`. La app no la usa: cada enlace de firma trae la URL del servicio que emitió la solicitud, y solo se admite `https://` o `http://` hacia una IP privada.
 
 ### 🔏 CA de laboratorio
 

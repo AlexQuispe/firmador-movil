@@ -11,6 +11,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import bo.edu.umsa.firmadormovil.BuildConfig
 import bo.edu.umsa.firmadormovil.cripto.AlmacenClaves
 import bo.edu.umsa.firmadormovil.pruebas.PdfPrueba
 import bo.edu.umsa.firmadormovil.pruebas.ServicioPrueba
@@ -33,8 +34,10 @@ class FlujoSolicitudTest {
 
     private val contexto = InstrumentationRegistry.getInstrumentation().targetContext
 
-    private fun enlace(id: String) =
-        Intent(Intent.ACTION_VIEW, Uri.parse("firmadormovil://firmar/$id")).setClass(contexto, MainActivity::class.java)
+    private fun enlace(id: String) = Intent(
+        Intent.ACTION_VIEW,
+        Uri.parse("firmadormovil://firmar/$id?servicio=${Uri.encode(BuildConfig.SERVICIO_URL)}"),
+    ).setClass(contexto, MainActivity::class.java)
 
     @Test
     fun elEnlaceMuestraLaConfirmacionYCancelarRegistraElRechazoYCierraLaApp() {
@@ -46,6 +49,7 @@ class FlujoSolicitudTest {
         ActivityScenario.launch<MainActivity>(enlace(solicitud)).use { escenario ->
             compose.waitUntil(15_000) { compose.onAllNodesWithText("Solicitud de firma").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("fm13_flujo.pdf", substring = true).assertIsDisplayed()
+            compose.onNodeWithText(Uri.parse(BuildConfig.SERVICIO_URL).authority!!).assertIsDisplayed()
 
             compose.onNodeWithText("Rechazar").performClick()
 
