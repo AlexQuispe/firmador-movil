@@ -35,9 +35,15 @@ object ClienteServicio {
         return Enlace(id, servicio, datos.getQueryParameter("sistema")?.let(::nombreSistema))
     }
 
-    /** Texto plano de una línea y hasta 60 caracteres; null si queda vacío. */
+    /**
+     * Texto plano de una línea y hasta 60 caracteres; null si queda vacío. Quita los caracteres de formato
+     * invisibles (p. ej. U+202E, que invierte el texto) y convierte saltos de línea y controles en espacios.
+     */
     fun nombreSistema(texto: String): String? =
-        texto.filterNot(Char::isISOControl).trim().take(60).trim().ifEmpty { null }
+        texto.replace(FORMATO, "").replace(ESPACIOS, " ").trim().take(60).trim().ifEmpty { null }
+
+    private val FORMATO = Regex("\\p{Cf}")
+    private val ESPACIOS = Regex("[\\s\\x00-\\x1F\\x7F-\\x9F]+")
 
     /**
      * URL base normalizada (`esquema://host[:puerto]`) si se admite: HTTPS hacia cualquier host, o HTTP
