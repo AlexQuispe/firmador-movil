@@ -45,6 +45,28 @@ class PantallasTitularTest {
     }
 
     @Test
+    fun unaSolicitudMuestraElNombreDelSistemaYSuHost() {
+        compose.setContent {
+            PantallaConfirmacion(
+                documento, certificado, firmando = false, alCancelar = {}, alFirmar = {},
+                solicitadoPor = "192.168.0.29:3000", sistema = "Gestión documental de ejemplo",
+            )
+        }
+        compose.onNodeWithText("Gestión documental de ejemplo").assertIsDisplayed()
+        compose.onNodeWithText("192.168.0.29:3000").assertIsDisplayed()
+        compose.onNodeWithText("Rechazar").assertIsDisplayed()
+    }
+
+    @Test
+    fun sinNombreDelSistemaElHostOcupaSuLugar() {
+        compose.setContent {
+            PantallaConfirmacion(documento, certificado, firmando = false, alCancelar = {}, alFirmar = {}, solicitadoPor = "192.168.0.29:3000")
+        }
+        compose.onNodeWithText("192.168.0.29:3000").assertIsDisplayed()
+        compose.onNodeWithText("SOLICITADA POR").assertIsDisplayed()
+    }
+
+    @Test
     fun soloFirmaAlPulsarFirmarYCancelarNoFirma() {
         var firmas = 0
         var cancelaciones = 0

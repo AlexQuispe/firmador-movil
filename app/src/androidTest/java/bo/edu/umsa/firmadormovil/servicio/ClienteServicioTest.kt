@@ -41,6 +41,19 @@ class ClienteServicioTest {
     }
 
     @Test
+    fun tomaElNombreDelSistemaComoLoCodificaElServicio() {
+        // URLSearchParams codifica los espacios como «+».
+        val abierto = ClienteServicio.enlace(enlace("firmadormovil://firmar/$id?servicio=$servicio&sistema=Gesti%C3%B3n+documental+de+ejemplo"))!!
+        assertEquals("Gestión documental de ejemplo", abierto.sistema)
+    }
+
+    @Test
+    fun ignoraElEnlaceSiElServicioNoEstaAdmitido() {
+        val publico = Uri.encode("http://8.8.8.8:3000")
+        assertNull(ClienteServicio.enlace(enlace("firmadormovil://firmar/$id?servicio=$publico")))
+    }
+
+    @Test
     fun ignoraOtrosEsquemasHostsEIdsQueNoSonUuid() {
         listOf(
             "https://firmar/$id?servicio=$servicio",
