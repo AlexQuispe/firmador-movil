@@ -1,6 +1,6 @@
 # Especificaciones técnicas — Firmador móvil
 
-**Versión:** 0.2 · **Estado:** listo para implementar · **Trazabilidad:** los códigos RF, RT y RS remiten a la matriz de requisitos de la monografía (apartado 3.2.2).
+**Versión:** 0.2 · **Estado:** implementado y probado · **Trazabilidad:** los códigos RF, RT y RS remiten a la matriz de requisitos de la monografía (apartado 3.2.2).
 
 ## 1. Alcance
 
@@ -58,7 +58,7 @@ flowchart LR
 5. Bouncy Castle arma `SignedData` con `signing-certificate-v2`; el valor de firma lo calcula el Keystore tras la autenticación.
 6. Se incrusta el CMS y se valida fuera del teléfono.
 
-**Biblioteca propuesta:** PDFBox-Android (Apache 2.0) + Bouncy Castle `bcpkix` (licencia tipo MIT). Ambas permiten un firmante externo. Se descarta iText por su licencia AGPL. Si la delegación falla en I3, se registra como incidencia (riesgo R2).
+**Bibliotecas:** PDFBox-Android (Apache 2.0) + Bouncy Castle `bcpkix` (licencia tipo MIT). Ambas permiten un firmante externo. Se descartó iText por su licencia AGPL. La delegación de la firma en el Keystore se comprobó en I3 (riesgo R2).
 
 ## 6. Integración (P2)
 

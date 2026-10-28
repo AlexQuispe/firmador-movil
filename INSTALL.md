@@ -33,7 +33,7 @@ yes | sdkmanager --licenses
 
 ```bash
 # Clonación del proyecto
-git clone https://gitlab.softwarelibre.gob.bo/wilmer.quispe/firmador-movil.git
+git clone https://github.com/AlexQuispe/firmador-movil.git
 
 # Ingresamos dentro de la carpeta del proyecto
 cd firmador-movil

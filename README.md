@@ -42,7 +42,7 @@ sequenceDiagram
 
 ## 🧱 Tecnología
 
-Kotlin · `minSdk 31` (necesario para `getSecurityLevel()`) · Android Keystore/StrongBox · BiometricPrompt · PDFBox-Android + Bouncy Castle (propuesta; ver especificaciones §5).
+Kotlin · `minSdk 31` (necesario para `getSecurityLevel()`) · Android Keystore/StrongBox · BiometricPrompt · PDFBox-Android + Bouncy Castle (ver especificaciones §5).
 
 ## 🗺️ Iteraciones
 
