@@ -1,4 +1,6 @@
 *.iml
+# Instrucciones locales del asistente de programación
+AGENTS.md
 .gradle/
 .kotlin/
 /local.properties
