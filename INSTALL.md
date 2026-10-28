@@ -37,9 +37,6 @@ git clone https://github.com/AlexQuispe/firmador-movil.git
 
 # Ingresamos dentro de la carpeta del proyecto
 cd firmador-movil
-
-# Cambiamos a la rama develop
-git checkout develop
 ```
 
 ### Archivos de configuración

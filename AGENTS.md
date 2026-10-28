@@ -2,16 +2,6 @@
 
 App Android (Kotlin) de prueba de concepto académica: firma PDF (PAdES B-B) en el teléfono con una clave RSA 2048 generada y usada en Android Keystore/StrongBox, no exportable, con certificado de una CA de laboratorio.
 
-## Fuente de verdad
-
-- Requisitos FM-xx, arquitectura y riesgos: `docs/ESPECIFICACIONES_TECNICAS.md`. Léela por secciones según la tarea; no la copies aquí ni la reformules en el código.
-- Contexto de la monografía: `../../AGENTS.md`, `../../docs/prueba_de_concepto.md`, `../../docs/indicadores.md`. Consúltalos solo si la tarea toca evaluación o redacción.
-- Contrato P2: `../firmador-servicio/docs/ESPECIFICACIONES_TECNICAS.md`, solo en I5.
-
-## Prioridad y orden
-
-P1 = I0–I4 (FM-01 a FM-10), en orden. P2 (I5: FM-11 a FM-13) solo con P1 cerrado. Al iniciar I3, probar primero la firma delegada PDFBox + Bouncy Castle → Keystore (riesgo R2).
-
 ## Comandos
 
 Requieren `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64` (el `java` del sistema es 15). Paquete: `bo.edu.umsa.firmadormovil`.
@@ -29,10 +19,6 @@ Requieren `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64` (el `java` del sistema 
 - Ningún código lee ni exporta la clave privada. Nada de PIN, credenciales, tokens, claves ni contenido de PDF en logs.
 - Firma siempre con confirmación explícita del usuario (nombre y SHA-256 del PDF). Sin firma desatendida.
 - Fuera de alcance: certificados AGETIC reales, TSA/LTV, homologación, producción.
-
-## Evidencia
-
-Cada ejecución de prueba se registra en `../../evidencias/I<n>_<nombre>/` con los campos de la §7 de la especificación. Ejecuciones previas a la definición de indicadores son de desarrollo, no resultados. No afirmar en código, commits ni docs equivalencia con ePass2003, homologación ni compatibilidad institucional.
 
 ## Forma de trabajo
 

@@ -10,7 +10,7 @@ App Android que firma PDF en el mismo teléfono con una clave generada en Androi
 
 - Samsung Galaxy S23 Ultra · Android 16 (API 36) · `feature:android.hardware.strongbox_keystore=4`.
 - La característica declarada **no prueba** que una clave concreta esté en StrongBox; eso lo prueba FM-02.
-- Linux con Android SDK, JDK y Gradle; las versiones exactas se registran en la evidencia.
+- Linux con Android SDK, JDK y Gradle; las versiones exactas están en el apéndice B de la monografía.
 
 ## 3. Requisitos
 
@@ -30,6 +30,8 @@ App Android que firma PDF en el mismo teléfono con una clave generada en Androi
 | FM-12 | Obtener y exportar la cadena de atestación (`setAttestationChallenge`)                                                                               | P2        | Cadena guardada y verificada fuera del teléfono | RS07             |
 | FM-13 | Abrir solicitudes desde enlace, descargar el PDF y devolver el resultado al servicio                                                                 | P2        | Prueba extremo a extremo                        | RF07             |
 | FM-14 | Armar el sujeto de la CSR como lista de OID y valor, un RDN por componente y en el orden recibido, como Jacobitus (I6)                               | P3        | Comparación con una CSR de Jacobitus            | RF02, C01        |
+
+Todos están implementados y verificados, salvo FM-12 (atestación), que no se implementó.
 
 ## 4. Seguridad
 
@@ -84,12 +86,12 @@ Los define la monografía (apartado 3.2.6) **antes** de las pruebas formales: cu
 
 ## 9. Riesgos
 
-| Riesgo                                              | Respuesta                                                 |
-| --------------------------------------------------- | --------------------------------------------------------- |
-| R1 StrongBox no admite el algoritmo                 | Evitar: RSA 2048 + SHA-256                                |
-| R2 La biblioteca no permite delegar la firma        | Mitigar: separar armado y firma; probarlo al inicio de I3 |
-| R3 Los validadores no reconocen la firma            | Mitigar: PAdES B-B estándar; más de un validador          |
-| R4 El certificado de laboratorio no es de confianza | Aceptar: registrar integridad y confianza por separado    |
+| Riesgo                                              | Respuesta                                                 | Resultado                                              |
+| --------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------ |
+| R1 StrongBox no admite el algoritmo                 | Evitar: RSA 2048 + SHA-256                                | No ocurrió: StrongBox aceptó RSA 2048                  |
+| R2 La biblioteca no permite delegar la firma        | Mitigar: separar armado y firma; probarlo al inicio de I3 | Resuelto en I3                                         |
+| R3 Los validadores no reconocen la firma            | Mitigar: PAdES B-B estándar; más de un validador          | No ocurrió: tres validadores reconocieron la integridad |
+| R4 El certificado de laboratorio no es de confianza | Aceptar: registrar integridad y confianza por separado    | Ocurrió, como se esperaba; se registró aparte           |
 
 ## 10. Fuera de alcance
 
