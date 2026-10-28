@@ -29,13 +29,14 @@ App Android que firma PDF en el mismo teléfono con una clave generada en Androi
 | FM-11 | Mostrar titular, emisor y vigencia del certificado                                                                                                   | P2        | Comparación con el certificado                  | RF06             |
 | FM-12 | Obtener y exportar la cadena de atestación (`setAttestationChallenge`)                                                                               | P2        | Cadena guardada y verificada fuera del teléfono | RS07             |
 | FM-13 | Abrir solicitudes desde enlace, descargar el PDF y devolver el resultado al servicio                                                                 | P2        | Prueba extremo a extremo                        | RF07             |
+| FM-14 | Armar el sujeto de la CSR como lista de OID y valor, un RDN por componente y en el orden recibido, como Jacobitus (I6)                               | P3        | Comparación con una CSR de Jacobitus            | RF02, C01        |
 
 ## 4. Seguridad
 
 - 🔑 La clave privada solo existe en el Keystore; ningún código la lee ni la exporta (RS01).
 - 🧾 Nunca registrar PIN, credenciales, tokens ni contenido de PDF en los logs (RS05).
 - 👆 La autorización la impone el Keystore (FM-04), no solo la interfaz.
-- 🔗 Un enlace solo abre la app: los datos de la solicitud se piden al servicio autenticado y el usuario confirma cada firma.
+- 🔗 Un enlace solo abre la app y lleva el ID de la solicitud y la URL base del servicio que la emitió: los datos se piden a ese servicio, la confirmación muestra su host y el usuario confirma cada firma. La app no lleva credenciales de ningún servicio.
 - 📵 Si se pierde o reinstala la app, la clave se pierde: en un escenario real correspondería revocar y emitir un certificado nuevo.
 
 ## 5. Arquitectura criptográfica
@@ -61,9 +62,16 @@ flowchart LR
 
 ## 6. Integración (P2)
 
-- Enlace: `https://<dominio>/firmar/<id>`, solo con el identificador opaco.
-- App Links: `intent-filter` con `autoVerify=true` y `/.well-known/assetlinks.json` en el dominio.
-- Sin dominio verificable se usa un deep link y se declara como **solución provisional**, no equivalente.
+- Enlace: Intent URI de Chrome `intent://firmar/{id}?servicio={url}&sistema={nombre}#Intent;scheme=firmadormovil;package=bo.edu.umsa.firmadormovil;end`, con el identificador opaco, la URL base del servicio y, opcionalmente, el nombre del sistema, codificados como parámetros de consulta. La app lo recibe con un `intent-filter` para el esquema `firmadormovil` y el host `firmar`. Así la app atiende a cualquier sistema cliente que implemente el contrato de la API, sin compilar la URL de un servicio concreto.
+- Chrome entrega el intent solo al paquete indicado: ninguna otra app que declare el esquema recibe el ID, y si la app no está instalada no se abre otra. El paquete no se verifica criptográficamente, a diferencia de un App Link con `assetlinks.json`; un APK distinto con el mismo paquete, instalado en lugar de este, lo recibiría. Se declara como limitación.
+- Al subir el resultado o registrar el rechazo, mostrar «Firma enviada» (o «Firma rechazada») y cerrar la app para que Android vuelva al navegador. El enlace no devuelve nada a la web: el resultado llega a ella a través del servicio.
+- URL del servicio recibida en el enlace. Riesgo: cualquier página puede pedir al titular que firme un PDF elegido por ella. Controles:
+  - La confirmación (FM-08) y el `BiometricPrompt` muestran quién pide la firma, además del nombre y el SHA-256 del PDF: el nombre del sistema, si viene, y siempre el host del servicio. El nombre lo declara el solicitante y no se verifica, así que no reemplaza al host; se limita a texto de una línea y 60 caracteres.
+  - Solo se admite `https://`, o `http://` hacia una IPv4 privada (10/8, 172.16/12, 192.168/16) para la red local del laboratorio. La URL debe ser solo esquema, host y puerto: sin usuario, ruta, consulta ni fragmento. Si no cumple, el enlace se ignora.
+  - Las llamadas no siguen redirecciones, para que el PDF firmado no llegue a un host distinto del mostrado.
+  - Como el host no se conoce al compilar, `network_security_config` permite tráfico sin cifrar en general y la restricción a IP privadas la aplica la app. Se declara como limitación de la PoC.
+- `SERVICIO_URL` en `local.properties` → `BuildConfig` queda solo para las pruebas instrumentadas de FM-13; la app no lo usa.
+- Propuesta de diseño, no implementada: una lista de sistemas cliente de confianza registrados en la app o por la ECA, para rechazar o advertir las solicitudes de otros orígenes.
 - Contrato de la API: `firmador-servicio/docs/ESPECIFICACIONES_TECNICAS.md`.
 
 ## 7. Evidencia por ejecución

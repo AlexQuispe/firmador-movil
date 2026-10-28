@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FM-13: el servicio llega en cada enlace, así que el host no se conoce al compilar.
+  ClienteServicio.servicioPermitido solo admite HTTP hacia IPv4 privadas; el resto, HTTPS.
+-->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="true" tools:ignore="InsecureBaseConfiguration" />
+</network-security-config>

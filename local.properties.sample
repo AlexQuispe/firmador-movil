@@ -1,0 +1,5 @@
+# Ubicación del Android SDK
+sdk.dir=/home/<usuario>/Android/Sdk
+
+# URL de firmador-servicio, solo para atender solicitudes desde la web (P2)
+SERVICIO_URL=http://192.168.1.10:3000

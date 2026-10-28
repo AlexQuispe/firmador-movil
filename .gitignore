@@ -1,0 +1,24 @@
+*.iml
+.gradle/
+.kotlin/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/app/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+# Material criptográfico de laboratorio: nunca en el repositorio
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.key
+# CA de laboratorio: solo se versiona la plantilla
+/ca-laboratorio/*
+!/ca-laboratorio/*.sample
+# Jerarquía de laboratorio de I6: solo se versionan la configuración y el script
+/ca-laboratorio-i6/*
+!/ca-laboratorio-i6/openssl-i6.cnf
+!/ca-laboratorio-i6/ca-i6.sh

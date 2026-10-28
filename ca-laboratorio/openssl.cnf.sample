@@ -1,0 +1,26 @@
+# CA de laboratorio del firmador móvil: solo para pruebas, sin validez legal.
+# Copiar a openssl.cnf antes de usar (ver INSTALL.md, sección "CA de laboratorio").
+
+[ req ]
+distinguished_name = dn_ca
+prompt             = no
+x509_extensions    = ext_ca
+
+[ dn_ca ]
+C  = BO
+O  = Prueba de concepto firmador movil
+OU = Laboratorio
+CN = CA de laboratorio (sin validez legal)
+
+# Certificado raíz autofirmado de la CA
+[ ext_ca ]
+basicConstraints       = critical, CA:TRUE, pathlen:0
+keyUsage               = critical, keyCertSign, cRLSign
+subjectKeyIdentifier   = hash
+
+# Certificado del titular emitido a partir de la CSR del teléfono (FM-07)
+[ ext_titular ]
+basicConstraints       = critical, CA:FALSE
+keyUsage               = critical, digitalSignature, nonRepudiation
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid, issuer
