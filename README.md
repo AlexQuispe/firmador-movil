@@ -6,7 +6,7 @@ Aplicación Android (Kotlin) que **genera, protege y usa la clave privada en el 
 
 ## 🎓 Contexto
 
-Prueba de concepto de la monografía *Estrategias basadas en PMBOK 7 con un enfoque adaptativo para la incorporación de dispositivos móviles en el servicio de firma digital de la Entidad Certificadora Pública AGETIC, orientadas a la entrega de valor al cliente* (Maestría en Transformación Digital y Gestión de Proyectos Tecnológicos, Universidad Mayor de San Andrés, 2026). El desarrollo se organizó en iteraciones con criterios de aceptación fijados antes de cada prueba; los códigos RF, RT y RS de la documentación remiten a la matriz de requisitos de la monografía.
+Prueba de concepto de la monografía *Estrategias basadas en PMBOK 7 con un enfoque adaptativo para la incorporación de dispositivos móviles en el servicio de firma digital de la Entidad Certificadora Pública, orientadas a la entrega de valor al cliente* (Maestría en Transformación Digital y Gestión de Proyectos Tecnológicos, Universidad Mayor de San Andrés, 2026). El desarrollo se organizó en iteraciones con criterios de aceptación fijados antes de cada prueba; los códigos RF, RT y RS de la documentación remiten a la matriz de requisitos de la monografía.
 
 ## ✅ Qué se comprobó
 
@@ -80,6 +80,6 @@ Los cambios posteriores son de documentación y de mejoras no evaluadas en la mo
 
 ## 🚫 No hace
 
-Certificados reales de AGETIC, sello de tiempo ni LTV, firma automática sin el usuario, homologación ni despliegue en producción.
+Certificados reales de la Entidad Certificadora Pública, sello de tiempo ni LTV, firma automática sin el usuario, homologación ni despliegue en producción.
 
 📄 Detalle: [Especificaciones técnicas](docs/ESPECIFICACIONES_TECNICAS.md) · 🛠️ [Manual de instalación](INSTALL.md) · 📜 [Licencia LPG-Bolivia v1.1](LICENSE)

@@ -1,10 +1,10 @@
 # Jerarquía de laboratorio de I6: solo para pruebas, sin validez legal.
-# Imita la estructura de la ECA AGETIC (raíz -> CA emisora -> titular) y el perfil de su certificado de
-# persona natural. Los nombres no son los de la ATT ni los de AGETIC. Uso: ver ca-i6.sh.
+# Imita la estructura de la Entidad Certificadora Pública (raíz -> CA emisora -> titular) y el perfil de su certificado de
+# persona natural. Los nombres no son los de la ATT ni los de la Entidad Certificadora Pública. Uso: ver ca-i6.sh.
 
 BASE = http://localhost:8099
 
-# ---------- nombres (orden DER: CN, O, C, como la CA de AGETIC) ----------
+# ---------- nombres (orden DER: CN, O, C, como la CA de la Entidad Certificadora Pública) ----------
 
 [ dn_raiz ]
 CN = Entidad Certificadora Raiz de Laboratorio (sin validez legal)
@@ -53,10 +53,10 @@ CPS.1            = https://ecrb.att.gob.bo/pcecrb.pdf
 fullname  = URI:$BASE/raiz.crl
 CRLissuer = dirName:dn_raiz
 
-# Perfil del certificado de persona natural de la ECA AGETIC (I6, criterio A3): mismo orden de
+# Perfil del certificado de persona natural de la Entidad Certificadora Pública (I6, criterio A3): mismo orden de
 # extensiones y ninguna crítica. Sin OCSP: el laboratorio no tiene respondedor.
 # certificatePolicies va en DER porque OpenSSL 3.0 no codifica bien el aviso en BMPString; son los mismos
-# bytes del certificado de AGETIC: política 2.16.68.0.0.0.1.14.1.2.0.1.0.0.1 con su CPS y política
+# bytes del certificado de la Entidad Certificadora Pública: política 2.16.68.0.0.0.1.14.1.2.0.1.0.0.1 con su CPS y política
 # 2.16.68.0.0.0.1.14.1.2.0.1.2.1.1.0 con el texto «Persona Natural Firma Simple».
 [ ext_titular ]
 authorityInfoAccess    = caIssuers;URI:$BASE/ca.pem
