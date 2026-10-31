@@ -65,7 +65,7 @@ class ClienteServicioEnlaceTest {
     @Test
     fun quitaLosCaracteresInvisiblesDeFormato() {
         assertEquals("Sistemafdp.exe", ClienteServicio.nombreSistema("Sistema‮fdp.exe"))
-        assertEquals("AGETIC", ClienteServicio.nombreSistema("AGE​TIC"))
+        assertEquals("Documentos", ClienteServicio.nombreSistema("Docu​mentos"))
     }
 
     @Test
